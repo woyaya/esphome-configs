@@ -27,7 +27,9 @@ substitutions:
   ACpower_off_threshold: '13'
 
   default_capacitance: '660'
-  default_capacitance_efficient: '0.9'
+  default_capacitance_efficient: '0.65'
+  default_dcdc_stop_voltage: '4.1'
+  default_mini_power: '7.75'
 #------- User configure END -------
 
 esphome:
@@ -40,6 +42,17 @@ esphome:
       - switch.turn_on: zigbee_rst
       - delay: 20ms
       - switch.turn_off: zigbee_rst
+      - number.set:
+          id: real_capacitance
+          value: !lambda |-
+            return id(capacitance).state * id(efficient).state;
+      - sensor.template.publish:
+          id: dischage_duration_realtime
+          state: 0.0
+      - sensor.template.publish:
+          id: solar_energy_total_internal
+          state: 0
+
 
 external_components:
   - source: github://oxan/esphome-stream-server
@@ -77,6 +90,24 @@ api:
 ota:
   safe_mode: true
   password: !secret ota_passwd
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Asia/Shanghai"
+    servers:
+      - "ntp1.cloud.aliyuncs.com"
+      - "ntp2.cloud.aliyuncs.com"
+      - "0.pool.ntp.org"
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+        days_of_month: 1
+        then:
+          - sensor.template.publish:
+              id: solar_energy_total_internal
+              state: 0
 
 # system reset button
 binary_sensor:
@@ -120,9 +151,14 @@ number:
     max_value: 3000
     step: 1
     restore_value: true
-    disabled_by_default: true
+    disabled_by_default: false
     initial_value: ${default_capacitance}
     update_interval: 3600s
+    on_value:
+      then:
+        - lambda: |-
+            double cap = x * id(efficient).state;
+            id(real_capacitance).publish_state(cap);
   - platform: template
     name: "Solar Capacitance Efficient"
     id: efficient
@@ -132,8 +168,66 @@ number:
     max_value: 1.00
     step: 0.01
     restore_value: true
-    disabled_by_default: true
+    disabled_by_default: false
     initial_value: ${default_capacitance_efficient}
+    update_interval: 3600s
+    on_value:
+      then:
+        - lambda: |-
+            double cap = x * id(capacitance).state;
+            id(real_capacitance).publish_state(cap);
+  - platform: template
+    name: "Solar Real Capacitance"
+    id: real_capacitance
+    optimistic: true
+    min_value: 1
+    max_value: 30000
+    step: 1
+    restore_value: false
+    disabled_by_default: false
+    internal: true
+    update_interval: never
+    on_value:
+      then:
+        - lambda: |-
+            double energy = 0.5 * x * id(voltage_stop).state * id(voltage_stop).state;
+            id(legacy_energy).publish_state(energy);
+  - platform: template
+    name: "Legacy energy"
+    id: legacy_energy
+    internal: true
+    optimistic: true
+    min_value: 1
+    max_value: 5000000
+    step: 1
+    restore_value: false
+    update_interval: never
+  - platform: template
+    name: "Solar DC-DC stop voltage"
+    id: voltage_stop
+    optimistic: true
+    min_value: 0
+    max_value: 10.0
+    step: 0.1
+    restore_value: true
+    disabled_by_default: false
+    initial_value: ${default_dcdc_stop_voltage}
+    update_interval: 3600s
+    on_value:
+      then:
+        - lambda: |-
+            double energy = 0.5 * id(real_capacitance).state * x * x;
+            id(legacy_energy).publish_state(energy);
+  - platform: template
+    name: "Solar mini dischage power"
+    id: dischage_power_mini
+    optimistic: true
+    min_value: 3.0
+    max_value: 20.0
+    step: 0.01
+    restore_value: true
+    disabled_by_default: false
+    initial_value: ${default_mini_power}
     update_interval: 3600s
 
 sensor:
@@ -149,15 +243,54 @@ sensor:
     name: "${device_name} uptime"
 #sensor:
   - platform: template
+    name: "Mini-power discharge duration"
+    id: dischage_duration_minipower
+    icon: "mdi:lightning-bolt-circle"
+    unit_of_measurement: "s"
+    accuracy_decimals: 0
+    update_interval: never
+    filters:
+      - delta: 60
+  - platform: template
+    name: "Realtime discharge duration"
+    id: dischage_duration_realtime
+    icon: "mdi:lightning-bolt-circle"
+    unit_of_measurement: "s"
+    accuracy_decimals: 0
+    update_interval: never
+    filters:
+      - delta: 60
+  - platform: template
     name: "Capacitor Energy"
     id: capacitor_energy
-    icon: "mdi:lightning-bolt-circle"
+    icon: "mdi:solar-power"
     unit_of_measurement: "J"
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: "Solar Energy Total internal"
+    id: solar_energy_total_internal
+    internal: true
+    accuracy_decimals: 0
+    update_interval: never
+    on_value:
+      then:
+        - sensor.template.publish:
+            id: solar_energy_total
+            state: !lambda 'return x/1000;'
+  - platform: template
+    name: "Solar Energy Total"
+    id: solar_energy_total
+    icon: "mdi:solar-power"
+    unit_of_measurement: "KJ"
+    state_class: total_increasing
+    device_class: energy
     accuracy_decimals: 0
     update_interval: never
   - platform: template
     name: "Capacitor Charge Realtime Power"
     id: charge_realtime_power
+    icon: "mdi:solar-power"
     device_class: "power"
     unit_of_measurement: "W"
     accuracy_decimals: 1
@@ -176,6 +309,7 @@ sensor:
   - platform: template
     name: "Capacitor Charge Power"
     id: charge_power
+    icon: "mdi:solar-power"
     device_class: "power"
     unit_of_measurement: "W"
     accuracy_decimals: 1
@@ -253,8 +387,38 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            double energy = 0.5 * id(capacitance).state * x * x * id(efficient).state;
+            static double old_energy = -1;
+            double energy = 0.5 * id(real_capacitance).state * x * x;
+            double energy_remain = energy - id(legacy_energy).state;
+            unsigned long mini;
+            unsigned long real;
+            if (energy_remain <= 60*id(dischage_power_mini).state)
+            {
+                energy_remain = 0;
+                mini = 0;
+                real = 0;
+            }else
+            {
+                mini = energy_remain / id(dischage_power_mini).state; 
+                if (id(charge_power).state < -5.0)
+                {
+                        double power = 0 - id(charge_power).state;
+                        real = energy_remain / power;
+                }else
+                        real = id(dischage_duration_realtime).state;
+            }
             id(capacitor_energy).publish_state(energy);
+            id(dischage_duration_minipower).publish_state(mini);
+            id(dischage_duration_realtime).publish_state(real);
+            if ((old_energy < 0) || (old_energy >= energy))
+                old_energy = energy;
+            else
+            {
+                double value = id(solar_energy_total_internal).state;
+                value += energy-old_energy;
+                id(solar_energy_total_internal).publish_state(value);
+                old_energy = energy;
+            }
 
 switch:
   - platform: restart
