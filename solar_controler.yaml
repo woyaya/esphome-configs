@@ -21,25 +21,29 @@ substitutions:
   #ESP is connected to the network, when in fact it is not - only a full reboot fixes it. 
   #Can be disabled by setting this to 0s. 
   #Defaults to 15min.
-  api_reboot_timeout: 20min
+  api_reboot_timeout: 30min
   
   ACpower_on_threshold: '7.5'
   ACpower_off_threshold: '13'
+
+  default_capacitance: '660'
+  default_capacitance_efficient: '0.9'
 #------- User configure END -------
 
 esphome:
   name: $device_name
   platform: ESP8266
   board: esp12e
-  includes:
-    - SRC/stream_server/stream_server.h
-    - SRC/stream_server/stream_server.cpp
   on_boot:
     priority: 800.0
     then:
       - switch.turn_on: zigbee_rst
       - delay: 20ms
       - switch.turn_off: zigbee_rst
+
+external_components:
+  - source: github://oxan/esphome-stream-server
+
 
 wifi:
   ssid: !secret wifi_ssid
@@ -107,6 +111,31 @@ binary_sensor:
     id: shadow_AC
     internal: true
 
+number:
+  - platform: template
+    name: "Solar Capacitance"
+    id: capacitance
+    optimistic: true
+    min_value: 1
+    max_value: 3000
+    step: 1
+    restore_value: true
+    disabled_by_default: true
+    initial_value: ${default_capacitance}
+    update_interval: 3600s
+  - platform: template
+    name: "Solar Capacitance Efficient"
+    id: efficient
+    icon: "mdi:percent"
+    optimistic: true
+    min_value: 0.10
+    max_value: 1.00
+    step: 0.01
+    restore_value: true
+    disabled_by_default: true
+    initial_value: ${default_capacitance_efficient}
+    update_interval: 3600s
+
 sensor:
   - platform: wifi_signal
     name: "WiFi signal"
@@ -119,6 +148,44 @@ sensor:
   - platform: uptime
     name: "${device_name} uptime"
 #sensor:
+  - platform: template
+    name: "Capacitor Energy"
+    id: capacitor_energy
+    icon: "mdi:lightning-bolt-circle"
+    unit_of_measurement: "J"
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    name: "Capacitor Charge Realtime Power"
+    id: charge_realtime_power
+    device_class: "power"
+    unit_of_measurement: "W"
+    accuracy_decimals: 1
+    update_interval: 60s
+    lambda: |-
+      static double old_value = -1;
+      double value;
+      double power;
+      value = id(capacitor_energy).state;
+      if (old_value < 0)
+              old_value = value;
+      power = (value - old_value)/60;
+      old_value = value;
+      id(charge_power).publish_state(power);
+      return power;
+  - platform: template
+    name: "Capacitor Charge Power"
+    id: charge_power
+    device_class: "power"
+    unit_of_measurement: "W"
+    accuracy_decimals: 1
+    update_interval: never
+    filters:
+      - sliding_window_moving_average:
+          window_size: 13
+          send_every: 5
+          send_first_at: 5
+
   - platform: adc
     pin: A0
     name: "Solar voltage"
@@ -133,10 +200,6 @@ sensor:
 #         =50.36638
       - offset: -0.01465
       - multiply: 50
-      - median:
-          window_size: 24
-          send_every: 10
-          send_first_at: 6
       - calibrate_linear:
         - 4.54094 -> 4.5
         - 4.93156 -> 5.0
@@ -171,14 +234,27 @@ sensor:
         - 46.14250 -> 46.0
         - 47.16789 -> 47.0
         - 48.14445 -> 48.0
+#      - median:
+#          window_size: 23
+#          send_every: 10
+#          send_first_at: 6
+      - sliding_window_moving_average:
+          window_size: 23
+          send_every: 10
+          send_first_at: 6
+#      - exponential_moving_average:
+#          alpha: 0.2
+#          send_every: 10
+#          send_first_at: 6
     on_value_range:
       below: ${ACpower_on_threshold}
       then:
-        if:
-          condition:
-            - switch.is_off: AC_DC
-          then:
-            - switch.turn_on: AC_DC
+        - switch.turn_on: AC_DC
+    on_value:
+      then:
+        - lambda: |-
+            double energy = 0.5 * id(capacitance).state * x * x * id(efficient).state;
+            id(capacitor_energy).publish_state(energy);
 
 switch:
   - platform: restart
@@ -275,8 +351,6 @@ uart:
   rx_pin: GPIO3
   baud_rate: 115200
 
-custom_component:
-  - lambda: |-
-      auto stream_server = new StreamServerComponent(id(uart_bus));
-      return {stream_server};
-
+stream_server:
+  uart_id: uart_bus
+  port: 8880

@@ -37,12 +37,11 @@ esphome:
   name: $device_name
   platform: ESP8266
   board: esp12e
-  includes:
-    - SRC/stream_server/stream_server.h
-    - SRC/stream_server/stream_server.cpp
   on_boot:
     priority: 800.0
     then:
+      - switch.turn_off: door_light
+      - delay: 350ms
       - switch.turn_on: door_light
       - delay: 60s
       - switch.turn_off: door_light
@@ -72,8 +71,8 @@ captive_portal:
 #    Disable UART logger if zigbee module enabled!!! #
 ######################################################
 logger:
-  baud_rate: 0
-#  baud_rate: 115200
+#  baud_rate: 0
+  baud_rate: 115200
 
 # Enable Home Assistant API
 api:
@@ -184,16 +183,5 @@ switch:
     id: door_light
     name: "${device_name} light"
     pin: ${relay_io}
-    restore_mode: ALWAYS_ON
-
-uart:
-  id: uart_bus
-  tx_pin: GPIO1
-  rx_pin: GPIO3
-  baud_rate: 115200
-
-custom_component:
-  - lambda: |-
-      auto stream_server = new StreamServerComponent(id(uart_bus));
-      return {stream_server};
+    restore_mode: ALWAYS_OFF
 
