@@ -1,0 +1,199 @@
+#------- User configure START -------
+substitutions:
+  config_version: 'v2022.04.30'
+  #This is the name of the node. 
+  #It should always be unique in your ESPhome network. 
+  #May only contain lowercase characters, digits and underscores.
+  device_name: door_ceiling
+  #If enabled, directly connects to WiFi network without doing a full scan first. 
+  #This is required for hidden networks and can significantly improve connection times. 
+  #The downside is that this option connects to the first network the ESP sees, 
+  #even if that network is very far away and better ones are available.
+  #Defaults to off. 
+  wifi_fast_connect: 'false'
+  #The amount of time to wait before rebooting when no WiFi connection exists. 
+  #Can be disabled by setting this to 0s, but note that the low level IP stack 
+  #currently seems to have issues with WiFi where a full reboot is required to 
+  #get the interface back working. 
+  #Defaults to 15min.
+  wifi_reboot_timeout: 15min
+  #The amount of time to wait before rebooting when no client connects to the API. 
+  #This is needed because sometimes the low level ESP functions report that the 
+  #ESP is connected to the network, when in fact it is not - only a full reboot fixes it. 
+  #Can be disabled by setting this to 0s. 
+  #Defaults to 15min.
+  api_reboot_timeout: 0min
+
+  #Sensor data IO
+  sensor_data_io: GPIO16
+  #Sensor control IO
+  sensor_ctrl_io: GPIO14
+  #Relay GPIO
+  relay_io: GPIO12
+
+#------- User configure END -------
+
+esphome:
+  name: $device_name
+  platform: ESP8266
+  board: esp12e
+  includes:
+    - SRC/stream_server/stream_server.h
+    - SRC/stream_server/stream_server.cpp
+  on_boot:
+    priority: 800.0
+    then:
+      - switch.turn_on: door_light
+      - delay: 60s
+      - switch.turn_off: door_light
+          
+  #指定编译临时文件存放位置
+  build_path: build/$device_name
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_passwd
+  reboot_timeout: $wifi_reboot_timeout
+#  manual_ip:
+#    static_ip: 192.168.1.203
+#    gateway: 192.168.1.1
+#    subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $device_name
+    password: !secret ap_passwd
+
+captive_portal:
+
+# Enable logging
+######################################################
+# ATTENTION:                                         #
+#    Disable UART logger if zigbee module enabled!!! #
+######################################################
+logger:
+  baud_rate: 0
+#  baud_rate: 115200
+
+# Enable Home Assistant API
+api:
+  password: !secret api_passwd
+  reboot_timeout: $api_reboot_timeout
+
+ota:
+  safe_mode: true
+  password: !secret ota_passwd
+
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Asia/Shanghai"
+    servers: 
+      - "ntp1.cloud.aliyuncs.com"
+      - "ntp2.cloud.aliyuncs.com"
+      - "0.pool.ntp.org"
+    on_time_sync:
+      then:
+        - logger.log:
+            format: "Current time: %d:%d"
+            args: [ 'id(sntp_time).now().hour', 'id(sntp_time).now().minute' ]
+        - if:
+            condition:
+              and:
+                - lambda: |-
+                    return id(sntp_time).now().hour <= 6 || id(sntp_time).now().hour >= 18;
+                - binary_sensor.is_off: connect_status
+            then:
+                - switch.turn_on: sensor_enable
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 18
+        then:
+          - if:
+              condition:
+                - binary_sensor.is_off: connect_status
+              then:
+                - switch.turn_on: sensor_enable
+      - seconds: 0
+        minutes: 30
+        hours: 6
+        then:
+          - if:
+              condition:
+                - binary_sensor.is_off: connect_status
+              then:
+                - switch.turn_off: sensor_enable
+
+sensor:
+  - platform: wifi_signal
+    name: "${device_name} WiFi signal"
+    update_interval: 10s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 6
+  - platform: uptime
+    name: "${device_name} uptime"
+#sensor:
+
+binary_sensor:
+  - platform: status
+    id: connect_status
+    internal: true
+    name: "${device_name} Status"
+# system reset button
+  - platform: gpio
+    name: "${device_name} Reset"
+    pin: GPIO0
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+        - switch.toggle: Reboot
+#############################################
+#binary_sensor:
+#sensor Input
+  - platform: gpio
+    name: "${device_name} sensor"
+    pin: ${sensor_data_io}
+    internal: false
+    device_class: motion
+    on_press:
+      then:
+        - switch.turn_on: door_light
+    on_release:
+      then:
+        - switch.turn_off: door_light
+
+#############################################
+switch:
+  - platform: restart
+    name: "${device_name} reboot"
+    id: Reboot
+
+  - platform: gpio
+    id: sensor_enable
+    name: "${device_name} sensor enable"
+    pin: ${sensor_ctrl_io}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    id: door_light
+    name: "${device_name} light"
+    pin: ${relay_io}
+    restore_mode: ALWAYS_ON
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 115200
+
+custom_component:
+  - lambda: |-
+      auto stream_server = new StreamServerComponent(id(uart_bus));
+      return {stream_server};
+

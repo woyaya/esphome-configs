@@ -1,0 +1,282 @@
+#------- User configure START -------
+substitutions:
+  #This is the name of the node. 
+  #It should always be unique in your ESPhome network. 
+  #May only contain lowercase characters, digits and underscores.
+  device_name: solar_controler
+  #If enabled, directly connects to WiFi network without doing a full scan first. 
+  #This is required for hidden networks and can significantly improve connection times. 
+  #The downside is that this option connects to the first network the ESP sees, 
+  #even if that network is very far away and better ones are available.
+  #Defaults to off. 
+  wifi_fast_connect: 'false'
+  #The amount of time to wait before rebooting when no WiFi connection exists. 
+  #Can be disabled by setting this to 0s, but note that the low level IP stack 
+  #currently seems to have issues with WiFi where a full reboot is required to 
+  #get the interface back working. 
+  #Defaults to 15min.
+  wifi_reboot_timeout: 15min
+  #The amount of time to wait before rebooting when no client connects to the API. 
+  #This is needed because sometimes the low level ESP functions report that the 
+  #ESP is connected to the network, when in fact it is not - only a full reboot fixes it. 
+  #Can be disabled by setting this to 0s. 
+  #Defaults to 15min.
+  api_reboot_timeout: 20min
+  
+  ACpower_on_threshold: '7.5'
+  ACpower_off_threshold: '13'
+#------- User configure END -------
+
+esphome:
+  name: $device_name
+  platform: ESP8266
+  board: esp12e
+  includes:
+    - SRC/stream_server/stream_server.h
+    - SRC/stream_server/stream_server.cpp
+  on_boot:
+    priority: 800.0
+    then:
+      - switch.turn_on: zigbee_rst
+      - delay: 20ms
+      - switch.turn_off: zigbee_rst
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_passwd
+  reboot_timeout: $wifi_reboot_timeout
+#  manual_ip:
+#    static_ip: 192.168.1.203
+#    gateway: 192.168.1.1
+#    subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $device_name
+    password: !secret ap_passwd
+
+captive_portal:
+
+# Enable logging
+######################################################
+# ATTENTION:                                         #
+#    Disable UART logger if zigbee module enabled!!! #
+######################################################
+logger:
+  baud_rate: 0
+
+# Enable Home Assistant API
+api:
+  password: !secret api_passwd
+  reboot_timeout: $api_reboot_timeout
+
+ota:
+  safe_mode: true
+  password: !secret ota_passwd
+
+# system reset button
+binary_sensor:
+  - platform: gpio
+    name: "Reset"
+    pin: GPIO0
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+        - switch.toggle: Reboot
+#############################################
+#binary_sensor:
+  - platform: gpio
+    name: "Solar ACPower"
+    id: ACpower
+    pin: GPIO14
+    filters:
+      - delayed_on: 100ms
+  - platform: gpio
+    name: "Solar ACEn"
+    pin: GPIO13
+    filters:
+      - delayed_on: 100ms
+
+  - platform: template
+    id: shadow_12V
+    internal: true
+  - platform: template
+    id: shadow_AC
+    internal: true
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi signal"
+    update_interval: 10s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 6
+  - platform: uptime
+    name: "${device_name} uptime"
+#sensor:
+  - platform: adc
+    pin: A0
+    name: "Solar voltage"
+    id: Solar_Voltage
+    update_interval: 1s
+    filters:
+# Data for ESP-07S with MAC (24:a1:60:2b:f2:ac)
+# R11: 470.2K
+# R12: 9.5247
+# multiply=(R11+R12)/R12
+#         =(470.2+9.5247)/9.5247
+#         =50.36638
+      - offset: -0.01465
+      - multiply: 50
+      - median:
+          window_size: 24
+          send_every: 10
+          send_first_at: 6
+      - calibrate_linear:
+        - 4.54094 -> 4.5
+        - 4.93156 -> 5.0
+        - 5.95695 -> 6.0
+        - 7.08000 -> 7.0
+        - 8.05656 -> 8.0
+        - 9.03312 -> 9.0
+        - 10.05852 -> 10.0
+        - 11.08391 -> 11.0
+        - 12.06047 -> 12.0
+        - 14.99016 -> 15.0
+        - 25.09758 -> 25.0
+        - 26.07411 -> 26.0
+        - 28.02727 -> 28.0
+        - 29.00383 -> 29.0
+        - 30.02922 -> 30.0
+        - 31.00578 -> 31.0
+        - 32.08000 -> 32.0
+        - 33.05656 -> 33.0
+        - 34.08195 -> 34.0
+#        -  -> 35.0
+#        -  -> 36.0
+#        -  -> 37.0
+#        -  -> 38.0
+#        -  -> 39.0
+#        -  -> 40.0
+        - 41.11320 -> 41.0
+        - 42.08977 -> 42.0
+        - 43.06633 -> 43.0
+        - 44.09172 -> 44.0
+        - 45.11711 -> 45.0
+        - 46.14250 -> 46.0
+        - 47.16789 -> 47.0
+        - 48.14445 -> 48.0
+    on_value_range:
+      below: ${ACpower_on_threshold}
+      then:
+        if:
+          condition:
+            - switch.is_off: AC_DC
+          then:
+            - switch.turn_on: AC_DC
+
+switch:
+  - platform: restart
+    name: "Solar controler reboot"
+    id: Reboot
+  - platform: gpio
+    name: "Solar DC 24V"
+    pin: GPIO5
+    inverted: yes
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: gpio
+    name: "Solar DC 12V internal"
+    id: DC_12V
+    internal: true
+    pin: GPIO4
+    restore_mode: ALWAYS_ON
+    inverted: yes
+    on_turn_on:
+      - binary_sensor.template.publish:
+          id: shadow_12V
+          state: ON
+    on_turn_off:
+      - binary_sensor.template.publish:
+          id: shadow_12V
+          state: OFF
+  - platform: gpio
+    name: "Solar AC-DC internal"
+    id: AC_DC
+    internal: true
+    pin: GPIO2
+    restore_mode: ALWAYS_ON
+    on_turn_on:
+      - binary_sensor.template.publish:
+          id: shadow_AC
+          state: ON
+    on_turn_off:
+      - binary_sensor.template.publish:
+          id: shadow_AC
+          state: OFF
+  - platform: gpio
+    name: "Zigbee reset"
+    id: zigbee_rst
+    pin:
+      number: GPIO12
+      inverted: true
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      then:
+        - delay: 1s
+        - switch.turn_off: zigbee_rst
+
+  - platform: template
+    name: "Solar DC 12V"
+    lambda: |-
+      if (id(shadow_12V).state) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - switch.turn_on: DC_12V
+    turn_off_action:
+      if:
+        condition:
+          - binary_sensor.is_on: ACpower
+        then:
+          - switch.turn_on: AC_DC
+          - delay: 300ms
+          - switch.turn_off: DC_12V
+  - platform: template
+    name: "Solar AC power"
+    lambda: |-
+      if (id(shadow_AC).state) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      - switch.turn_on: AC_DC
+    turn_off_action:
+      if:
+        condition:
+          sensor.in_range:
+            id: Solar_Voltage
+            above: ${ACpower_on_threshold}
+        then:
+          - switch.turn_on: DC_12V
+          - delay: 300ms
+          - switch.turn_off: AC_DC
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 115200
+
+custom_component:
+  - lambda: |-
+      auto stream_server = new StreamServerComponent(id(uart_bus));
+      return {stream_server};
+

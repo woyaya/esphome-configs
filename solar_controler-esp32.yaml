@@ -1,0 +1,143 @@
+esphome:
+  name: solar_controler_esp32
+  platform: ESP32
+  board: nodemcu-32s
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_passwd
+  reboot_timeout: 10s
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Solar Controler esp32"
+    password: !secret ap_passwd
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: !secret api_passwd
+
+ota:
+  password: !secret ota_passwd
+
+# LED on ESP12S module
+status_led:
+  id: link_led
+  pin:
+    number: GPIO2
+#    inverted: True
+
+# system reset button
+binary_sensor:
+  - platform: gpio
+    name: "SolarReset"
+    pin: GPIO0
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+        - switch.toggle: SolarReboot
+#############################################
+#binary_sensor:
+  - platform: gpio
+    name: "Solar ACPower Green"
+    pin: GPIO033
+    filters:
+      - delayed_on: 100ms
+  - platform: gpio
+    name: "Solar ACEn Red"
+    pin: GPIO032
+    filters:
+      - delayed_on: 100ms
+
+sensor:
+  - platform: wifi_signal
+    name: "Solar WiFi signal"
+    update_interval: 10s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 6
+#sensor:
+  - platform: adc
+    pin: GPIO39
+    name: "Solar voltage"
+    update_interval: 1s
+    attenuation: 0db
+    filters:
+#      - offset: -0.014
+      - multiply: 48
+      - median:
+          window_size: 24
+          send_every: 10
+          send_first_at: 6
+      - calibrate_linear:
+        - 1.44 -> 5.0
+        - 2.68 -> 6.0
+        - 3.73 -> 7.0
+        - 4.92 -> 8.0
+        - 6.05 -> 9.0
+        - 7.25 -> 10.0
+        - 8.44 -> 11.0
+        - 9.58 -> 12.0
+        - 10.70 -> 13.0
+        - 11.88 -> 14.0
+        - 12.98 -> 15.0
+        - 18.70 -> 20.0
+        - 24.54 -> 25.0
+        - 30.44 -> 30.0
+        - 31.55 -> 31.0
+        - 32.67 -> 32.0
+        - 33.91 -> 33.0
+        - 35.08 -> 34.0
+        - 36.16 -> 35.0
+        - 37.37 -> 36.0
+        - 38.50 -> 37.0
+        - 39.57 -> 38.0
+        - 40.93 -> 39.0
+        - 42.08 -> 40.0
+        - 43.12 -> 41.0
+        - 44.23 -> 42.0
+        - 45.61 -> 43.0
+        - 46.83 -> 44.0
+        - 48.07 -> 45.0
+        - 49.12 -> 46.0
+        - 50.40 -> 47.0
+        - 51.45 -> 48.0
+  - platform: adc
+    pin: GPIO34
+    name: "Solar output 5V"
+    update_interval: 1s
+    unit_of_measurement: "V"
+    filters:
+      - multiply: 7.762
+      - median:
+          window_size: 12
+          send_every: 6
+          send_first_at: 6
+
+switch:
+  - platform: restart
+    name: "Solar controler reboot"
+    id: SolarReboot
+  - platform: gpio
+    name: "Solar DC 24V"
+    pin: GPIO26
+    inverted: yes
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: gpio
+    name: "Solar DC 12V"
+    pin: GPIO25
+    restore_mode: RESTORE_DEFAULT_ON
+    inverted: yes
+  - platform: gpio
+    name: "Solar AC-DC"
+    pin: GPIO12
+    restore_mode: RESTORE_DEFAULT_ON

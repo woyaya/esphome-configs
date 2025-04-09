@@ -1,0 +1,364 @@
+esphome:
+  name: $device_name
+  platform: ESP8266
+  board: esp12e
+  #断电记忆，恢复上次的状态
+  esp8266_restore_from_flash: 'false'
+  on_boot:
+    - priority: -100.0
+      then:
+        - sensor.template.publish:
+            id: brightness_mutation
+            state: 0.0
+    - priority: 800.0
+      then:
+        - switch.turn_off: light
+        - delay: 350ms
+        - switch.turn_on: light
+        - delay: 30s
+        - switch.turn_off: light
+
+#----------------------------------------------------
+  #指定编译临时文件存放位置
+  build_path: build/$device_name
+#----------------------------------------------------
+
+#------- 一些自定义的配置，一般情况下只需要改这下面的内容 -------
+
+substitutions:
+  config_version: 'v2022.05.15'
+  #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
+  device_name: stair_side_ceiling
+  #如果SSID是隐藏的，设置为true
+  wifi_fast_connect: 'false'
+  #WiFi离线多久后重启设备，秒s/分钟min/小时h，不需要此功能设置为0s，建议设置0s，防止异常重启，或者设置的大一些
+  wifi_reboot_timeout: 0s
+  #与API服务端失去连接多久后重启设备，秒s/分钟min/小时h，不需要此功能设置为0s，建议设置0s，防止异常重启，或者设置的大一些
+  api_reboot_timeout: 0s
+
+  #传感器GPIO
+  sensor_io: GPIO14     #CoreIO 6
+  sensor_ctrl_io: GPIO13   #CoreIO 5
+  #继电器GPIO
+  relay_io: GPIO15      #CoreIO 7
+  #I2C IO
+  I2C_SDA: GPIO12       #CoreIO 4
+  I2C_SCL: GPIO2        #CoreIO 3
+
+  # BH1750 poll period
+  BH1750_FAST_POLL: '250'
+  BH1750_SLOW_POLL: '5000'
+
+  # initial value
+  ILLUMINANCE_INITIAL: '70000'
+  ILLUMINANCE_MAX: '65535'
+#------- WIFI配置 -------
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_passwd
+#----------需要设置静态地址的改下面的配置------------
+#  manual_ip:
+#    static_ip: 192.168.178.230
+#    gateway: 192.168.178.1
+#    subnet: 255.255.255.0
+#    dns1: 1.1.1.1
+#    dns2: 1.2.2.1
+#--------------------------------------------------
+  domain: .local
+  reboot_timeout: $wifi_reboot_timeout
+  power_save_mode: none
+  fast_connect: $wifi_fast_connect
+  #需要修改名字的时候，启用，OTA后禁用
+  #use_address: ota.local
+  
+#------- WIFI AP配置 -------
+  ap:
+    ssid: $device_name
+    password: !secret ap_passwd
+#对应的管理IP地址为192.168.4.1
+
+#---------不使用api与设备连接的话删除api配置---------
+api:
+  reboot_timeout: $api_reboot_timeout
+  password: !secret api_passwd
+#----------------------------------------------------
+
+#------- OTA 空中升级配置 -------
+ota:
+  safe_mode: true
+  password: !secret ota_passwd
+#  port: 3286
+
+# LED on ESP12S module
+#status_led:
+#  id: onboard_led
+#  pin:
+#    number: GPIO2
+#    inverted: True
+
+text_sensor:
+  - platform: template #配置文件版本
+    name: "${device_name} Config Version"
+    lambda: |-
+      return {"${config_version}"};
+  - platform: version
+    #esphome版本
+    name: "${device_name} esphome_version"
+    icon: mdi:information-outline
+  - platform: wifi_info
+    ip_address:
+      name: "${device_name} IP"
+    ssid:
+      name: "${device_name} SSID"
+#    bssid:
+#      name: "${device_name} Connected BSSID"
+
+#------- 深度休眠配置，一般情况下不建议使用，休眠后将无法远程控制设置 -------
+#deep_sleep:
+  #唤醒时间
+#  run_duration: 50s
+  #休眠时间
+#  sleep_duration: 10min
+#----------------------------------------------------
+
+#------- 是否开启DEBUG模式，logger的level需至少设置为DEBUG -------
+#debug:
+
+#-------打印log设置，注意实际输出端口为主板上面的log_tx，而不是刷机用到的tx-------
+logger:
+  #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
+  # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
+  level: INFO
+  #level: DEBUG
+  #设置为0关闭通过UART的log输出
+  baud_rate: 115200
+  #通过TTL看log信息，取消注释下面这行，读取接口为RX1，具体见模组接口说明图
+  hardware_uart: UART0
+
+globals:
+  - id: illuminance_polling_interval
+    type: int
+    initial_value: ${BH1750_SLOW_POLL}
+    restore_value: no
+  - id: illuminance
+    type: float
+    restore_value: no
+    initial_value: ${ILLUMINANCE_INITIAL}
+  - id: illuminance_older
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+#############################################
+#MD5G10 motion sensor output 6s high-level signal @ poweron
+#and then output 2s low-level with lock-mode
+#So if we needed to ignore poweron time sequence, we have to
+#In sensor enable side:
+#  1. sensor enable(sensor_enable)
+#      a) set trigger count(motion_trigger_count) to '0'
+#      b) force sensor output(motion_sensor) as off
+#      c) execute real sensor enabled(sensor_enable_physic)
+#      d) start 7s countdown(ignore_poweron_motion_trigger)
+#  2. 7s countdown time is over, increase trigger count(motion_trigger_count)
+#
+#In sensor side:
+#  1. sensor trigged @ power-on
+#     a) trigger count(motion_trigger_count) is 0, do nothing
+#  2. sensor trigged @ normal operation
+#     a) trigger count(motion_trigger_count) is not 0, set sensor output(motion_sensor) as on
+#  3. sensor trigged end
+#     set sensor output(motion_sensor) as off
+#############################################
+  - id: motion_trigger_count
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+number:
+  - platform: template
+    name: "${device_name} illuminance polling interval"
+    id: polling_interval
+    icon: "mdi:timer"
+    lambda: !lambda |-
+      return id(illuminance_polling_interval);
+    update_interval: 61s
+    min_value: 100
+    max_value: 3600000
+    step: 10
+    set_action:
+         - lambda: |-
+             int tmp = id(illuminance_polling_interval);
+             if (x != tmp)
+             {
+                     id(livingroom_brightness)->set_update_interval(x);
+                     id(livingroom_brightness).call_setup();
+                     id(illuminance_polling_interval) = x;
+             }
+             ESP_LOGI("main", "Set BH1750 polling interval: %d -> %d", tmp, (int)x);
+
+sensor:
+  - platform: uptime
+    name: "${device_name} uptime"
+  - platform: wifi_signal
+    name: "${device_name} wifi_signal"
+    update_interval: 10s
+    filters:
+      - median:
+          window_size: 20
+          send_every: 10
+          send_first_at: 6
+  - platform: bh1750
+    name: "Livingroom Illuminance BH1750"
+    address: 0x23
+    id: livingroom_brightness
+    update_interval: '${BH1750_SLOW_POLL}ms'
+    filters:
+      - sliding_window_moving_average:
+          window_size: 20
+          send_every: 6
+          send_first_at: 2
+      - or:
+          - throttle: 60s
+          - delta: 0.5
+    on_raw_value:
+      then:
+        - lambda: |-
+            if (id(illuminance) >= ${ILLUMINANCE_MAX})
+            {
+                id(illuminance) = x;
+                id(illuminance_older) = x;
+            }
+            if (x < 1.0){
+                    float value = id(illuminance);
+                    if (value >= 1.0)
+                    {/*illuminance decrease*/
+                        float delta1 = x - value;
+                        float delta2 = value - id(illuminance_older);
+                        float delta = delta1 < delta2 ? delta1 : delta2;
+                        id(brightness_mutation).publish_state(delta);
+                        id(darkness).publish_state(true);
+                    }
+            }else if (x > 2.0){
+                    float value;
+                    float value_older;
+                    value = id(illuminance);
+                    value_older = id(illuminance_older);
+                    if ((value > 2.0) && (value_older <= 2.0))
+                    {
+                        float delta1 = x - value;
+                        float delta2 = value - value_older;
+                        float delta = delta1 > delta2 ? delta1 : delta2;
+                        id(brightness_mutation).publish_state(delta);
+                        id(darkness).publish_state(false);
+                    }
+            }
+            id(illuminance_older) = id(illuminance);
+            id(illuminance) = x;
+  - platform: template
+    name: "${device_name} brightness mutation"
+    id: brightness_mutation
+    unit_of_measurement: lx
+
+binary_sensor:
+  - platform: gpio
+    name: "${device_name} Reset"
+    pin: GPIO0
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+        - switch.toggle: Reboot
+  - platform: gpio
+    name: "motion sensor"
+    pin: ${sensor_io}
+    internal: true
+    device_class: motion
+    on_press:
+      then:
+        - lambda: |-
+            if (id(motion_trigger_count) > 0){
+                id(motion_sensor).publish_state(true);
+            }
+    on_release:
+      then:
+        - lambda: |-
+            id(motion_sensor).publish_state(false);
+  - platform: template
+    name: "${device_name} sensor"
+    device_class: motion
+    id: motion_sensor
+
+  - platform: template
+    name: "Livingroom realtime darkness"
+    id: darkness
+    on_press:
+      then:
+        - number.set:
+            id: polling_interval
+            value: ${BH1750_SLOW_POLL}
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: 'return id(brightness_mutation).raw_state > 5.5;'
+            then:
+              - number.set:
+                  id: polling_interval
+                  value: ${BH1750_FAST_POLL}
+            else:
+              - number.set:
+                  id: polling_interval
+                  value: ${BH1750_SLOW_POLL}
+
+#------- 用于可控制的开关 -------
+switch:
+  - platform: restart
+    name: "${device_name} restart"
+    id: Reboot
+
+  - platform: gpio
+    id: sensor_enable_physic
+    name: "sensor enable"
+    internal: true
+    pin: ${sensor_ctrl_io}
+    restore_mode: ALWAYS_OFF
+  - platform: template
+    name: "${device_name} sensor enable"
+    id: sensor_enable
+    restore_state: no
+    optimistic: true
+    on_turn_on:
+      then:
+        - script.stop: ignore_poweron_motion_trigger
+        - globals.set:
+            id: motion_trigger_count
+            value: '0'
+        - binary_sensor.template.publish:
+            id:  motion_sensor
+            state: off
+        - switch.turn_on: sensor_enable_physic
+        - script.execute: ignore_poweron_motion_trigger
+    on_turn_off:
+      then:
+        - switch.turn_off: sensor_enable_physic
+
+  - platform: gpio
+    id: light
+    name: "${device_name} light"
+    pin: ${relay_io}
+    restore_mode: ALWAYS_OFF
+#############################################
+script:
+  id: ignore_poweron_motion_trigger
+  then:
+    - delay: 7s
+    - lambda: |-
+        id(motion_trigger_count) += 1;
+#############################################
+i2c:
+  sda: ${I2C_SDA}
+  scl: ${I2C_SCL}
+  scan: true
+  id: bus_a
+  frequency: 100kHz

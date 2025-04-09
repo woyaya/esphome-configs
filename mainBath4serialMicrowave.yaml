@@ -1,0 +1,313 @@
+#------- User configure START -------
+substitutions:
+  config_version: 'v2021.11.06'
+  #This is the name of the node. 
+  #It should always be unique in your ESPhome network. 
+  #May only contain lowercase characters, digits and underscores.
+  device_name: bathroom_main
+  #If enabled, directly connects to WiFi network without doing a full scan first. 
+  #This is required for hidden networks and can significantly improve connection times. 
+  #The downside is that this option connects to the first network the ESP sees, 
+  #even if that network is very far away and better ones are available.
+  #Defaults to off. 
+  wifi_fast_connect: 'false'
+  #The amount of time to wait before rebooting when no WiFi connection exists. 
+  #Can be disabled by setting this to 0s, but note that the low level IP stack 
+  #currently seems to have issues with WiFi where a full reboot is required to 
+  #get the interface back working. 
+  #Defaults to 15min.
+  wifi_reboot_timeout: 15min
+  #The amount of time to wait before rebooting when no client connects to the API. 
+  #This is needed because sometimes the low level ESP functions report that the 
+  #ESP is connected to the network, when in fact it is not - only a full reboot fixes it. 
+  #Can be disabled by setting this to 0s. 
+  #Defaults to 15min.
+  api_reboot_timeout: 20min
+
+  #Sensor data IO
+  sensor_data_io: GPIO16
+  #Sensor control IO
+  sensor_ctrl_io: GPIO14
+  #Relay GPIO
+  relay_io_1: GPIO12
+  relay_io_2: GPIO13
+
+#------- User configure END -------
+
+esphome:
+  name: $device_name
+  platform: ESP8266
+  board: esp12e
+  includes:
+    - SRC/uart/uart_recv.h
+  build_path: build/$device_name
+  on_boot:
+    priority: 0
+    then:
+      - uart.write: "sensorStop\r\n"
+      - delay: 100ms
+      - uart.write: "getHWV\r\n"
+      - delay: 100ms
+      - uart.write: "getSWV\r\n"
+      - delay: 100ms
+      - uart.write: "getSensitivity\r\n"
+      - delay: 100ms
+      - uart.write: "getLatency\r\n"
+      - delay: 100ms
+      - uart.write: "getRange\r\n"
+      - delay: 100ms
+      - uart.write: "sensorStart\r\n"
+      - delay: 100ms
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_passwd
+  reboot_timeout: $wifi_reboot_timeout
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $device_name
+    password: !secret ap_passwd
+
+captive_portal:
+
+# Enable logging
+logger:
+  level: INFO
+  baud_rate: 0
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  baud_rate: 115200
+
+# Enable Home Assistant API
+api:
+  password: !secret api_passwd
+  reboot_timeout: $api_reboot_timeout
+
+ota:
+  id: ota_id
+  safe_mode: true
+  password: !secret ota_passwd
+  
+
+# LED on ESP12S module
+status_led:
+  id: onboard_led
+  pin:
+    number: GPIO2
+    inverted: True
+
+binary_sensor:
+  - platform: gpio
+    name: "Reset ${device_name}"
+    pin: GPIO0
+    internal: true
+    filters:
+      - invert:
+      - delayed_on: 10ms
+    on_press:
+      then:
+        - switch.toggle: Reboot
+  - platform: gpio
+    name: "sensor ${device_name}"
+    pin: ${sensor_data_io}
+    internal: false
+    device_class: motion
+
+switch:
+  - platform: restart
+    name: "Reboot $device_name"
+    id: Reboot
+  - platform: template
+    name: "Reset sensor config $device_name"
+    turn_on_action:
+      - uart.write: "sensorStop\r\n"
+      - delay: 100ms
+      - uart.write: "resetCfg\r\n"
+      - delay: 2s
+      - switch.toggle: Reboot
+  - platform: gpio
+    id: sensor_restart
+    name: "Sensor enable $device_name"
+    pin: ${sensor_ctrl_io}
+    restore_mode: ALWAYS_ON
+  - platform: gpio
+    name: "Relay2 ${device_name}"
+    pin: ${relay_io_2}
+    restore_mode: ALWAYS_OFF
+  - platform: gpio
+    name: "Relay1 ${device_name}"
+    pin: ${relay_io_1}
+    restore_mode: ALWAYS_OFF
+
+globals:
+  - id: sensitivity_value
+    type: int
+    restore_value: no
+  - id: latency_value
+    type: int
+    restore_value: no
+  - id: range_value
+    type: float
+    restore_value: no
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "${device_name} IP"
+    ssid:
+      name: "${device_name} SSID"
+    bssid:
+      name: "${device_name} BSSID"
+  - platform: template
+    id: uart_cmd_set
+    internal: true
+    on_value:
+      then:
+        - logger.log: 
+            format: "UART cmd set: %s"
+            args: [x.c_str()]
+        - uart.write: "sensorStop\r\n"
+        - delay: 100ms
+        - uart.write: !lambda 
+            std::string str = x + "\r\n";
+            std::vector<unsigned char> data(str.begin(), str.end());
+            return data;
+        - delay: 100ms
+        - uart.write: "saveConfig\r\n"
+        - delay: 500ms
+        - uart.write: "sensorStart\r\n"
+        - delay: 100ms
+  - platform: template
+    id: command
+    internal: true
+
+  - platform: template
+    id: Sensitivity
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGD("main", "Sensitivity: %s", x.c_str());
+            id(sensitivity_value) = strtol(x.c_str(), NULL, 10);
+  - platform: template
+    id: Latency
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGD("main", "Latency: %s", x.c_str());
+            const char *blank = strchr(x.c_str(), ' ');
+            if (NULL == blank)
+                return;
+            id(latency_value) = strtol(blank, NULL, 10);
+  - platform: template
+    id: Range
+    internal: true
+    on_value:
+      then:
+        - lambda: |-
+            ESP_LOGD("main", "Range: %s", x.c_str());
+            const char *blank = strchr(x.c_str(), ' ');
+            if (NULL == blank)
+                return;
+            id(range_value) = strtof(blank, NULL);
+  - platform: template
+    id: SWV
+    name: "software $device_name"
+  - platform: template
+    id: HWV
+    name: "hardware $device_name"
+  - platform: custom
+    lambda: |-
+      auto my_custom_sensor = new UartReadLineSensor(id(uart_bus));
+      App.register_component(my_custom_sensor);
+      return {my_custom_sensor};
+    text_sensors:
+      id: "uart_readline"
+      on_value:
+        then:
+          - lambda: |-
+              ESP_LOGD("main", "RECV: %s", x.c_str());
+              if (!strncmp(x.c_str(), "Response ", 9))
+              {
+                        x.erase(0,9);
+                        if (!strcmp(id(command).state.c_str(), "Sensitivity"))
+                                id(Sensitivity).publish_state(x.c_str());
+                        else if (!strcmp(id(command).state.c_str(), "Latency"))
+                                id(Latency).publish_state(x.c_str());
+                        else if (!strcmp(id(command).state.c_str(), "Range"))
+                                id(Range).publish_state(x.c_str());
+              }else if (!strcmp(x.c_str(), "getSensitivity"))
+              {
+                      id(command).publish_state("Sensitivity");
+              }else if (!strcmp(x.c_str(), "getLatency"))
+              {
+                      id(command).publish_state("Latency");
+              }else if (!strcmp(x.c_str(), "getRange"))
+              {
+                      id(command).publish_state("Range");
+              }else if (!strncmp(x.c_str(), "HardwareVersion:", 16))
+              {
+                      x.erase(0,16);
+                      id(HWV).publish_state(x.c_str());
+              }else if (!strncmp(x.c_str(), "SoftwareVersion:", 16))
+              {
+                      x.erase(0,16);
+                      id(SWV).publish_state(x.c_str());
+              }else if (!strcmp(x.c_str(), "Error"))
+              {
+                      id(command).publish_state("");
+              }
+number:
+  - platform: template
+    name: "distance $device_name"
+    id: distance
+    icon: "mdi:signal-distance-variant"
+    lambda: !lambda |-
+      return id(range_value);
+    update_interval: 3s
+    min_value: 0.1
+    max_value: 11.0
+    step: 0.1
+    set_action:
+      - text_sensor.template.publish:
+          id: uart_cmd_set
+          state: !lambda
+            char buf[32];
+            snprintf(buf, sizeof(buf), "setRange 0 %.1f", x);
+            std::string s = buf;
+            return s.c_str();
+  - platform: template
+    name: "sensitivity $device_name"
+    id: sensitivity
+    icon: "mdi:motion-sensor"
+    lambda: !lambda |-
+      return id(sensitivity_value);
+    update_interval: 3s
+    min_value: 1
+    max_value: 9
+    step: 1
+    set_action:
+      - lambda: |-
+          ESP_LOGD("main", ">>>>>>>>RECV: %d %d", x, (int)(id(sensitivity).state));
+      - text_sensor.template.publish:
+          id: uart_cmd_set
+          state: !lambda 'return "setSensitivity " + to_string((int)x);'
+  - platform: template
+    name: "latency $device_name"
+    id: latency
+    icon: "mdi:timer"
+    lambda: !lambda |-
+      return id(latency_value);
+    update_interval: 3s
+    min_value: 1
+    max_value: 1500
+    step: 1
+    set_action:
+      - text_sensor.template.publish:
+          id: uart_cmd_set
+          state: !lambda 'return "setLatency 0.05 " + to_string((int)x);'
