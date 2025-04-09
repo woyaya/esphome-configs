@@ -15,13 +15,13 @@ substitutions:
   #currently seems to have issues with WiFi where a full reboot is required to 
   #get the interface back working. 
   #Defaults to 15min.
-  wifi_reboot_timeout: 15min
+  wifi_reboot_timeout: 0s
   #The amount of time to wait before rebooting when no client connects to the API. 
   #This is needed because sometimes the low level ESP functions report that the 
   #ESP is connected to the network, when in fact it is not - only a full reboot fixes it. 
   #Can be disabled by setting this to 0s. 
   #Defaults to 15min.
-  api_reboot_timeout: 30min
+  api_reboot_timeout: 0s
   
   ACpower_on_threshold: '7.5'
   ACpower_off_threshold: '13'
