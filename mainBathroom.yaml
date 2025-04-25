@@ -1,6 +1,6 @@
 #------- User configure START -------
 substitutions:
-  config_version: 'v2022.11.24'
+  config_version: 'v2025.04.25'
   #This is the name of the node. 
   #It should always be unique in your ESPhome network. 
   #May only contain lowercase characters, digits and underscores.
@@ -16,13 +16,13 @@ substitutions:
   #currently seems to have issues with WiFi where a full reboot is required to 
   #get the interface back working. 
   #Defaults to 15min.
-  wifi_reboot_timeout: 15min
+  wifi_reboot_timeout: 0min
   #The amount of time to wait before rebooting when no client connects to the API. 
   #This is needed because sometimes the low level ESP functions report that the 
   #ESP is connected to the network, when in fact it is not - only a full reboot fixes it. 
   #Can be disabled by setting this to 0s. 
   #Defaults to 15min.
-  api_reboot_timeout: 20min
+  api_reboot_timeout: 0min
 
   #Sensor data IO
   sensor_data_io: GPIO14
@@ -79,12 +79,15 @@ logger:
 
 # Enable Home Assistant API
 api:
-  password: !secret api_passwd
+  #password: !secret api_passwd
   reboot_timeout: $api_reboot_timeout
+  encryption:
+    key: !secret api_key
 
 ota:
-  safe_mode: true
+  #password: !secret ota_passwd
   password: !secret ota_passwd
+  platform: esphome
 
 script:
   - id: asrpro_online
@@ -165,7 +168,8 @@ switch:
     id: debug
     name: "ASRPro debug ${device_name}"
     optimistic: true
-    restore_state: true
+    #restore_state: true
+    restore_mode: 'RESTORE_DEFAULT_OFF'
     turn_on_action:
       - text_sensor.template.publish:
           id: asrpro_cmd 
@@ -190,7 +194,8 @@ switch:
     id: speaker_exist
     name: "Speaker exist ${device_name}"
     optimistic: true
-    restore_state: true
+    #restore_state: true
+    restore_mode: 'RESTORE_DEFAULT_ON'
     turn_on_action:
       - text_sensor.template.publish:
           id: asrpro_cmd 
