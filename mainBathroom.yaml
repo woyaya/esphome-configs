@@ -1,6 +1,6 @@
 #------- User configure START -------
 substitutions:
-  config_version: 'v2025.04.25'
+  config_version: 'v2025.05.25'
   #This is the name of the node. 
   #It should always be unique in your ESPhome network. 
   #May only contain lowercase characters, digits and underscores.
@@ -100,6 +100,12 @@ script:
       - binary_sensor.template.publish: 
           id: asrpro_state
           state: OFF
+
+globals:
+  - id: fan_delay_on
+    type: int
+    restore_value: no
+    initial_value: '-1'
 
 sensor:
   - platform: wifi_signal
@@ -263,6 +269,40 @@ switch:
     pin: ${light_ctrl_io}
     restore_mode: ALWAYS_OFF
   - platform: template
+    id: fan_delay
+    name: "Fan ${device_name} delay"
+    icon: "mdi:fan"
+    lambda: |-
+      if (id(fan_delay_on) >= 0){
+        return id(fan_delay_on);
+      }else{
+        return id(fan).state;
+      }
+    turn_on_action:
+      - globals.set:
+          id: fan_delay_on
+          value: '1'
+      - wait_until:
+          condition:
+            switch.is_on: fan
+          timeout: 600ms
+      - switch.turn_on: fan
+      - globals.set:
+          id: fan_delay_on
+          value: '-1'
+    turn_off_action:
+      - globals.set:
+          id: fan_delay_on
+          value: '0'
+      - wait_until:
+          condition:
+            switch.is_off: fan
+          timeout: 600ms
+      - switch.turn_off: fan
+      - globals.set:
+          id: fan_delay_on
+          value: '-1'
+  - platform: template
     id: fan
     name: "Fan ${device_name}"
     icon: "mdi:fan"
@@ -273,8 +313,16 @@ switch:
         return true;
     turn_on_action:
       - switch.turn_off: fan_power_gpio
+      # "fan_delay" may call "state report" before "fan" publish state
+      # so we force publish 'fan' state here
+      - lambda: |-
+          id(fan).publish_state(true);
     turn_off_action:
       - switch.turn_on: fan_power_gpio
+      # "fan_delay" may call "state report" before "fan" publish state
+      # so we force publish 'fan' state here
+      - lambda: |-
+          id(fan).publish_state(false);
   - platform: gpio
     id: fan_power_gpio
     name: "fan power"
@@ -444,9 +492,9 @@ text_sensor:
               {
                         x.erase(0,3);
                         if (!strcmp(x.c_str(), "TurnOn"))
-                                id(fan).turn_on();
+                                id(fan_delay).turn_on();
                         else if (!strcmp(x.c_str(), "TurnOff"))
-                                id(fan).turn_off();
+                                id(fan_delay).turn_off();
               }else if (!strncmp(x.c_str(), "Speaker", 7))
               {
                         x.erase(0,7);
