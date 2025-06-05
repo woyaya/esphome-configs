@@ -90,6 +90,7 @@ api:
 ota:
   safe_mode: true
   password: !secret ota_passwd
+  platform: esphome
 
 time:
   - platform: sntp

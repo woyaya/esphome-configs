@@ -12,7 +12,7 @@ esphome:
 #------- 一些自定义的配置，一般情况下只需要改这下面的内容 -------
 
 substitutions:
-  config_version: 'v2019.12.26.001'
+  config_version: 'v2025.06.05'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: phicomm_dc1_api
   #如果SSID是隐藏的，设置为true
@@ -57,7 +57,7 @@ api:
 
 #------- OTA 空中升级配置 -------
 ota:
-  safe_mode: true
+  platform: esphome
   password: !secret ota_passwd
 #  port: 3286
 
@@ -84,15 +84,16 @@ i2c:
   #frequency: 20kHz
 
 #------- 接入CAT9554的扩展IO -------
-cat9554:
-  id: cat9554_hub
+pca9554:
+  id: pca9554_hub
   #address: 0x20
-  irq_pin: GPIO4
+  #irq_pin: GPIO4
 
 #------- 接入CSE7766电量传感器 -------
 uart:
   rx_pin: GPIO13
   baud_rate: 4800
+  parity: EVEN
 
 #------- 是否开启DEBUG模式，logger的level需至少设置为DEBUG -------
 #debug:
@@ -103,9 +104,9 @@ logger:
   # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
   level: INFO
   #设置为0关闭通过UART的log输出
-  baud_rate: 115200
+  baud_rate: 0
   #通过TTL看log信息，取消注释下面这行，读取接口为RX1，具体见模组接口说明图
-  hardware_uart: UART1
+#  hardware_uart: UART1
 
 sensor:
   - platform: cse7766
@@ -115,7 +116,7 @@ sensor:
       name: "${device_name} current"
     power:
       name: "${device_name} power"
-    update_interval: $cse7766_update_interval
+    #update_interval: $cse7766_update_interval
   - platform: uptime
     name: "${device_name} uptime"
   - platform: wifi_signal
@@ -133,7 +134,7 @@ binary_sensor:
     #是否对外隐藏（true/false）
     internal: true
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 0
       number: 0
       mode: INPUT
@@ -152,7 +153,7 @@ binary_sensor:
     #是否对外隐藏（true/false）
     internal: true
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 1
       number: 1
       mode: INPUT
@@ -171,7 +172,7 @@ binary_sensor:
     #是否对外隐藏（true/false）
     internal: true
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 2
       number: 2
       mode: INPUT
@@ -221,8 +222,16 @@ binary_sensor:
     internal: true
     
 #WiFi状态灯
-status_led:
-  pin: GPIO0
+#status_led:
+#  pin: GPIO0
+
+## choose only one between light status_led platform and status_led component
+light:
+  - platform: status_led
+    name: "${device_name} wifi_light"
+    pin:
+      number: GPIO0
+      inverted: true
 
 text_sensor:
   - platform: template #配置文件版本
@@ -249,7 +258,7 @@ output:
     #设置启动优先级到IO级，解决断电恢复被重置的问题
     setup_priority: 900
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 4
       number: 4
       mode: OUTPUT
@@ -259,7 +268,7 @@ output:
     id: realy2
     setup_priority: 900
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 5
       number: 5
       mode: OUTPUT
@@ -269,7 +278,7 @@ output:
     id: realy1
     setup_priority: 900
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 6
       number: 6
       mode: OUTPUT
@@ -279,7 +288,7 @@ output:
     id: realy0
     setup_priority: 900
     pin:
-      cat9554: cat9554_hub
+      pca9554: pca9554_hub
       # Use pin number 7
       number: 7
       mode: OUTPUT
@@ -287,9 +296,13 @@ output:
 
 #------- 用于可控制的开关 -------
 switch:
+  - platform: restart
+    name: "${device_name} reboot"
+    id: Reboot
+
   - platform: output
     #总开关(显示为一个开关)
-    name: "${device_name} switch0"
+    name: "${device_name} switch all"
     output: realy0
     id: switch0
     on_turn_on:

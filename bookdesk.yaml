@@ -57,7 +57,7 @@ api:
 
 #------- OTA 空中升级配置 -------
 ota:
-  safe_mode: true
+  platform: esphome
   password: !secret ota_passwd
 #  port: 3286
 
@@ -93,6 +93,7 @@ pca9554:
 uart:
   rx_pin: GPIO13
   baud_rate: 4800
+  parity: EVEN
 
 #------- 是否开启DEBUG模式，logger的level需至少设置为DEBUG -------
 #debug:
@@ -293,6 +294,10 @@ output:
 
 #------- 用于可控制的开关 -------
 switch:
+  - platform: restart
+    name: "${device_name} reboot"
+    id: Reboot
+
   - platform: output
     #总开关(显示为一个开关)
     name: "${device_name} USB"
