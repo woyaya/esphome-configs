@@ -42,14 +42,18 @@ esphome:
   includes:
     - SRC/uart/uart_recv.h
   on_boot:
-    priority: 800.0
-    then:
-      - binary_sensor.template.publish: 
-          id: asrpro_state
-          state: OFF
-      - switch.turn_off: sensor_enable
-      - delay: 20ms
-      - switch.turn_on: sensor_enable
+    - priority: 800.0
+      then:
+        - binary_sensor.template.publish: 
+            id: asrpro_state
+            state: OFF
+        - switch.turn_off: sensor_enable
+        - delay: 20ms
+        - switch.turn_on: sensor_enable
+    - priority: -100
+      then:
+        - delay: 1s
+        - switch.turn_off: fan_delay
   #指定编译临时文件存放位置
   build_path: build/$device_name
 
@@ -250,9 +254,16 @@ switch:
       - text_sensor.template.publish:
           id: asrpro_cmd 
           state: "Success"
+
+    # If you use "inverted=true" to achieve inversion, there will be a 
+    # short high pulse on the GPIO when restarting, which may cause 
+    # impact on relays and devices. Therefore, inverted=false is used 
+    # at the GPIO layer, and the logic inversion is performed at the 
+    # switch layer.
   - platform: template
     id: light_power
     name: "light AC power ${device_name}"
+    restore_mode: ALWAYS_ON
     lambda: |-
       if (id(light_power_gpio).state)
         return false;
@@ -272,6 +283,7 @@ switch:
     id: fan_delay
     name: "Fan ${device_name} delay"
     icon: "mdi:fan"
+    restore_mode: ALWAYS_ON
     lambda: |-
       if (id(fan_delay_on) >= 0){
         return id(fan_delay_on);
@@ -306,6 +318,7 @@ switch:
     id: fan
     name: "Fan ${device_name}"
     icon: "mdi:fan"
+    restore_mode: ALWAYS_ON
     lambda: |-
       if (id(fan_power_gpio).state)
         return false;
@@ -373,6 +386,7 @@ number:
     max_value: 7
     step: 1
     restore_value: true
+    initial_value: 3
     set_action:
       then:
         - lambda: |-
