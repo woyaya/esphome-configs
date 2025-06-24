@@ -6,6 +6,7 @@
 #VERSION=2022.6.2
 #VERSION=2024.5.5
 VERSION=2024.12.4
+#VERSION=2025.4.0
 #VERSION=latest
 DIR=/home/homeassistant/esphome
 [ -f `basename $0` ] && DIR=$PWD

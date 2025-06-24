@@ -1,0 +1,18 @@
+#------- User configure START -------
+substitutions:
+  #This is the name of the node. 
+  #It should always be unique in your ESPhome network. 
+  #May only contain lowercase characters, digits and underscores.
+  device_name: nodemcu_bathroom
+
+  #Sensor data IO
+  sensor_data_io: GPIO12
+  #Sensor control IO
+  sensor_ctrl_io: GPIO13
+  #Light AC power control IO
+  light_ctrl_io: GPIO4
+  #Fun power control IO
+  fun_ctrl_io: GPIO14
+
+packages:
+  foo: !include mainBathroom.yaml

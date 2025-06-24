@@ -4,7 +4,7 @@ substitutions:
   #This is the name of the node. 
   #It should always be unique in your ESPhome network. 
   #May only contain lowercase characters, digits and underscores.
-  device_name: nodemcu
+  device_name: nodemcu_stream_server
   #If enabled, directly connects to WiFi network without doing a full scan first. 
   #This is required for hidden networks and can significantly improve connection times. 
   #The downside is that this option connects to the first network the ESP sees, 
