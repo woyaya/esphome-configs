@@ -8,9 +8,10 @@
 VERSION=2024.12.4
 #VERSION=2025.4.0
 #VERSION=latest
-DIR=/home/homeassistant/esphome
+DIR=/Volumes/Seagate2T/git/esphome-configs
 [ -f `basename $0` ] && DIR=$PWD
 _ver=`echo $VERSION | awk -F. '{printf("%04d%02d%02d\n",$1,$2,$3)}'`
+echo "Config dir: $DIR"
  
 if [ "$VERSION" != "latest" -a "$_ver" -lt 20240800 ]
 then
