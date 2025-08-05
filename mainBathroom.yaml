@@ -1,6 +1,6 @@
 #------- User configure START -------
 substitutions:
-  config_version: 'v2025.06.15'
+  config_version: 'v2025.08.05'
   #This is the name of the node. 
   #It should always be unique in your ESPhome network. 
   #May only contain lowercase characters, digits and underscores.
@@ -30,8 +30,9 @@ substitutions:
   sensor_ctrl_io: GPIO13
   #Light AC power control IO
   light_ctrl_io: GPIO12
-  #Fun power control IO
-  fun_ctrl_io: GPIO15
+  #Fan power control IO
+  fan_ctrl_io: GPIO15
+  fan_on_state: '1'
 
 #------- User configure END -------
 
@@ -320,18 +321,30 @@ switch:
     icon: "mdi:fan"
     restore_mode: ALWAYS_ON
     lambda: |-
-      if (id(fan_power_gpio).state)
-        return false;
-      else
+      if (id(fan_power_gpio).state == ${fan_on_state})
         return true;
+      else
+        return false;
     turn_on_action:
-      - switch.turn_off: fan_power_gpio
+      - if:
+          condition:
+            lambda: 'return ${fan_on_state};'
+          then:
+            - switch.turn_on: fan_power_gpio
+          else:
+            - switch.turn_off: fan_power_gpio
       # "fan_delay" may call "state report" before "fan" publish state
       # so we force publish 'fan' state here
       - lambda: |-
           id(fan).publish_state(true);
     turn_off_action:
-      - switch.turn_on: fan_power_gpio
+      - if:
+          condition:
+            lambda: 'return ${fan_on_state};'
+          then:
+            - switch.turn_off: fan_power_gpio
+          else:
+            - switch.turn_on: fan_power_gpio
       # "fan_delay" may call "state report" before "fan" publish state
       # so we force publish 'fan' state here
       - lambda: |-
@@ -340,7 +353,7 @@ switch:
     id: fan_power_gpio
     name: "fan power"
     internal: true
-    pin: ${fun_ctrl_io}
+    pin: ${fan_ctrl_io}
     restore_mode: ALWAYS_OFF
 
 number:

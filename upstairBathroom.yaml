@@ -11,8 +11,9 @@ substitutions:
   sensor_ctrl_io: GPIO13
   #Light AC power control IO
   light_ctrl_io: GPIO4
-  #Fun power control IO
-  fun_ctrl_io: GPIO14
+  #Fan power control IO
+  fan_ctrl_io: GPIO14
+  fan_on_state: '0'
 
 packages:
   foo: !include mainBathroom.yaml
