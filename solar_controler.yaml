@@ -1,5 +1,6 @@
 #------- User configure START -------
 substitutions:
+  config_version: 'v2025.09.19'
   #This is the name of the node. 
   #It should always be unique in your ESPhome network. 
   #May only contain lowercase characters, digits and underscores.
@@ -80,6 +81,8 @@ captive_portal:
 #    Disable UART logger if zigbee module enabled!!! #
 ######################################################
 logger:
+#  level: DEBUG
+  level: INFO
   baud_rate: 0
 
 # Enable Home Assistant API
@@ -88,7 +91,6 @@ api:
   reboot_timeout: $api_reboot_timeout
 
 ota:
-  safe_mode: true
   password: !secret ota_passwd
   platform: esphome
 
@@ -328,13 +330,17 @@ sensor:
     update_interval: 1s
     filters:
 # Data for ESP-07S with MAC (24:a1:60:2b:f2:ac)
-# R11: 470.2K
-# R12: 9.5247
+# R11: 470.2K(2025-09-18: 469.15k)
+# R12: 9.5247(2025=09-18: 9.509k)
 # multiply=(R11+R12)/R12
 #         =(470.2+9.5247)/9.5247
 #         =50.36638
       - offset: -0.01465
       - multiply: 50
+      - median:
+          window_size: 7
+          send_every: 4
+          send_first_at: 3
       - calibrate_linear:
         - 4.54094 -> 4.5
         - 4.93156 -> 5.0
@@ -369,18 +375,35 @@ sensor:
         - 46.14250 -> 46.0
         - 47.16789 -> 47.0
         - 48.14445 -> 48.0
-#      - median:
-#          window_size: 23
-#          send_every: 10
-#          send_first_at: 6
       - sliding_window_moving_average:
-          window_size: 23
-          send_every: 10
-          send_first_at: 6
+          window_size: 15
+          send_every: 5
+          send_first_at: 3
 #      - exponential_moving_average:
 #          alpha: 0.2
 #          send_every: 10
 #          send_first_at: 6
+
+#    on_raw_value:
+#      then:
+#        - lambda: |-
+#            static double old_adc = -9.87654321;
+#            static int adc_count = 0;
+#            double new_adc = x;
+#            if (std::fabs(old_adc-new_adc) > 0.0015)
+#            {
+#              ESP_LOGW("ADC", "RAW change: %.5f->%.5f->%.5f", old_adc, x, (x-0.01465) * 50);
+#              old_adc = new_adc;
+#              adc_count = 0;
+#            }else
+#            {
+#              if (adc_count++ > 60)
+#              {
+#                ESP_LOGW("ADC", "RAW unchange: %.5f->%.5f->%.5f", old_adc, x, (x-0.01465) * 50);
+#                adc_count = 0;
+#              }
+#            }
+
     on_value_range:
       below: ${ACpower_on_threshold}
       then:
