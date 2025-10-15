@@ -14,7 +14,7 @@ esphome:
 substitutions:
   config_version: 'v2025.10.15'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
-  device_name: bookdesk
+  device_name: livingroom
   #如果SSID是隐藏的，设置为true
   wifi_fast_connect: 'false'
   #WiFi离线多久后重启设备，秒s/分钟min/小时h，不需要此功能设置为0s，建议设置0s，防止异常重启，或者设置的大一些
@@ -111,26 +111,26 @@ logger:
 sensor:
   - platform: cse7766
     voltage:
-      name: "${device_name} voltage"
+      name: "voltage"
     current:
-      name: "${device_name} current"
+      name: "current"
     power:
-      name: "${device_name} power"
+      name: "power"
     #update_interval: $cse7766_update_interval
   - platform: uptime
-    name: "${device_name} uptime"
+    name: "uptime"
   - platform: wifi_signal
-    name: "${device_name} wifi_signal"
+    name: "wifi_signal"
 
 binary_sensor:
   - platform: status
     #设备状态
-    name: "${device_name} status"
+    name: "status"
     #是否对外隐藏（true/false）
     internal: false
   - platform: gpio
     #第一个按钮(内部引用，对外隐藏)
-    name: "${device_name} key1"
+    name: "key1"
     #是否对外隐藏（true/false）
     internal: true
     pin:
@@ -149,7 +149,7 @@ binary_sensor:
           - switch.toggle: switch1
   - platform: gpio
     #第二个按钮(内部引用，对外隐藏)
-    name: "${device_name} key2"
+    name: "key2"
     #是否对外隐藏（true/false）
     internal: true
     pin:
@@ -168,7 +168,7 @@ binary_sensor:
           - switch.toggle: switch2
   - platform: gpio
     #第三个按钮(内部引用，对外隐藏)
-    name: "${device_name} key3"
+    name: "key3"
     #是否对外隐藏（true/false）
     internal: true
     pin:
@@ -187,7 +187,7 @@ binary_sensor:
           - switch.toggle: switch3
   - platform: gpio
     #总开关(内部引用，对外隐藏)
-    name: "${device_name} key0"
+    name: "key0"
     #是否对外隐藏（true/false）
     id: key0
     internal: true
@@ -228,27 +228,27 @@ binary_sensor:
 ## choose only one between light status_led platform and status_led component
 light:
   - platform: status_led
-    name: "${device_name} wifi_light"
+    name: "wifi_light"
     pin:
       number: GPIO0
       inverted: true
 
 text_sensor:
   - platform: template #配置文件版本
-    name: "${device_name} Config Version"
+    name: "Config Version"
     lambda: |-
       return {"${config_version}"};
   - platform: version
     #esphome版本
-    name: "${device_name} esphome_version"
+    name: "esphome_version"
     icon: mdi:information-outline
   - platform: wifi_info
     ip_address:
-      name: "${device_name} IP Address"
+      name: "IP Address"
     ssid:
-      name: "${device_name} Connected SSID"
+      name: "Connected SSID"
 #    bssid:
-#      name: "${device_name} Connected BSSID"
+#      name: "Connected BSSID"
 
 #------- 用于控制继电器 -------
 output:
@@ -297,12 +297,12 @@ output:
 #------- 用于可控制的开关 -------
 switch:
   - platform: restart
-    name: "${device_name} reboot"
+    name: "reboot"
     id: Reboot
 
   - platform: output
     #总开关(显示为一个开关)
-    name: "${device_name} USB"
+    name: "USB"
     output: realy0
     id: switch0
     restore_mode: ALWAYS_ON
@@ -338,7 +338,7 @@ switch:
           }
   - platform: output
     #开关1(显示为一个开关)
-    name: "${device_name} LeChengTP1"
+    name: "LeChengTP1"
     output: realy1
     id: switch1
     restore_mode: ALWAYS_ON
@@ -349,7 +349,7 @@ switch:
           }
   - platform: output
     #开关2(显示为一个开关)
-    name: "${device_name} TmallGenie"
+    name: "TmallGenie"
     output: realy2
     id: switch2
     on_turn_on:
@@ -359,7 +359,7 @@ switch:
           }
   - platform: output
     #开关3(显示为一个开关)
-    name: "${device_name} XiaomiSpeaker"
+    name: "XiaomiSpeaker"
     output: realy3
     id: switch3
     on_turn_on:
@@ -370,7 +370,7 @@ switch:
   - platform: gpio
     #LOGO灯
     pin: GPIO14
-    name: "${device_name} LOGO Light"
+    name: "LOGO Light"
     id: LOGO_light
     internal: false
     inverted: true
