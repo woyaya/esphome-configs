@@ -12,7 +12,7 @@ esphome:
 #------- 一些自定义的配置，一般情况下只需要改这下面的内容 -------
 
 substitutions:
-  config_version: 'v2024.12.07'
+  config_version: 'v2025.10.15'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: bookdesk
   #如果SSID是隐藏的，设置为true
@@ -186,7 +186,9 @@ binary_sensor:
         then:
           - switch.toggle: switch3
   - platform: gpio
+    #总开关(内部引用，对外隐藏)
     name: "${device_name} key0"
+    #是否对外隐藏（true/false）
     id: key0
     internal: true
     pin:
@@ -303,6 +305,7 @@ switch:
     name: "${device_name} USB"
     output: realy0
     id: switch0
+    restore_mode: ALWAYS_ON
     #on_turn_on:
     # - switch.turn_on: LOGO_light
     # - lambda: |-
@@ -335,9 +338,10 @@ switch:
           }
   - platform: output
     #开关1(显示为一个开关)
-    name: "${device_name} switch1"
+    name: "${device_name} LeChengTP1"
     output: realy1
     id: switch1
+    restore_mode: ALWAYS_ON
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
@@ -345,7 +349,7 @@ switch:
           }
   - platform: output
     #开关2(显示为一个开关)
-    name: "${device_name} switch2"
+    name: "${device_name} TmallGenie"
     output: realy2
     id: switch2
     on_turn_on:
@@ -355,7 +359,7 @@ switch:
           }
   - platform: output
     #开关3(显示为一个开关)
-    name: "${device_name} switch3"
+    name: "${device_name} XiaomiSpeaker"
     output: realy3
     id: switch3
     on_turn_on:
