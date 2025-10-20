@@ -12,7 +12,7 @@ esphome:
 #------- 一些自定义的配置，一般情况下只需要改这下面的内容 -------
 
 substitutions:
-  config_version: 'v2025.10.15'
+  config_version: 'v2025.10.20'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: livingroom
   #如果SSID是隐藏的，设置为true
@@ -23,6 +23,14 @@ substitutions:
   api_reboot_timeout: 0s
   #电量统计的数据刷新时间（内部刷新时间，非上报周期），秒s/分钟min/小时h
   cse7766_update_interval: 1s
+  #限制异常电流/功率值
+  cse7766_max_current: '3'
+  cse7766_max_power: '660'
+  #开关名称
+  output0_name: "USB"
+  output1_name: "LeChengTP1"
+  output2_name: "TmallGenie"
+  output3_name: "XiaomiSpeaker"
 
 #------- WIFI配置 -------
 wifi:
@@ -103,6 +111,9 @@ logger:
   #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
   # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
   level: INFO
+  #level: VERBOSE
+  #logs:
+  #  sensor: INFO
   #设置为0关闭通过UART的log输出
   baud_rate: 0
   #通过TTL看log信息，取消注释下面这行，读取接口为RX1，具体见模组接口说明图
@@ -114,9 +125,22 @@ sensor:
       name: "voltage"
     current:
       name: "current"
+      filters:
+        - clamp:
+            min_value: 0
+            max_value: $cse7766_max_current
+            ignore_out_of_range: true
     power:
       name: "power"
-    #update_interval: $cse7766_update_interval
+      filters:
+        - clamp:
+            min_value: 0
+            max_value: $cse7766_max_power
+            ignore_out_of_range: true
+        - median:
+            window_size: 7
+            send_every: 4
+            send_first_at: 3
   - platform: uptime
     name: "uptime"
   - platform: wifi_signal
@@ -302,7 +326,7 @@ switch:
 
   - platform: output
     #总开关(显示为一个开关)
-    name: "USB"
+    name: $output0_name
     output: realy0
     id: switch0
     restore_mode: ALWAYS_ON
@@ -338,7 +362,7 @@ switch:
           }
   - platform: output
     #开关1(显示为一个开关)
-    name: "LeChengTP1"
+    name: $output1_name
     output: realy1
     id: switch1
     restore_mode: ALWAYS_ON
@@ -349,7 +373,7 @@ switch:
           }
   - platform: output
     #开关2(显示为一个开关)
-    name: "TmallGenie"
+    name: $output2_name
     output: realy2
     id: switch2
     on_turn_on:
@@ -359,7 +383,7 @@ switch:
           }
   - platform: output
     #开关3(显示为一个开关)
-    name: "XiaomiSpeaker"
+    name: $output3_name
     output: realy3
     id: switch3
     on_turn_on:
