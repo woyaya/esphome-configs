@@ -31,6 +31,10 @@ substitutions:
   output1_name: "LeChengTP1"
   output2_name: "TmallGenie"
   output3_name: "XiaomiSpeaker"
+  output0_restore_mode: "ALWAYS_ON"
+  output1_restore_mode: "ALWAYS_ON"
+  output2_restore_mode: "ALWAYS_OFF"
+  output3_restore_mode: "ALWAYS_OFF"
 
 #------- WIFI配置 -------
 wifi:
@@ -329,7 +333,7 @@ switch:
     name: $output0_name
     output: realy0
     id: switch0
-    restore_mode: ALWAYS_ON
+    restore_mode: $output0_restore_mode
     #on_turn_on:
     # - switch.turn_on: LOGO_light
     # - lambda: |-
@@ -365,7 +369,7 @@ switch:
     name: $output1_name
     output: realy1
     id: switch1
-    restore_mode: ALWAYS_ON
+    restore_mode: $output1_restore_mode
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
@@ -376,6 +380,7 @@ switch:
     name: $output2_name
     output: realy2
     id: switch2
+    restore_mode: $output2_restore_mode
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
@@ -386,6 +391,7 @@ switch:
     name: $output3_name
     output: realy3
     id: switch3
+    restore_mode: $output3_restore_mode
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
