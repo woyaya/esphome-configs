@@ -12,7 +12,7 @@ esphome:
 #------- 一些自定义的配置，一般情况下只需要改这下面的内容 -------
 
 substitutions:
-  config_version: 'v2025.06.05'
+  config_version: 'v2025.10.20'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: phicomm_dc1_api
   #如果SSID是隐藏的，设置为true
@@ -23,6 +23,18 @@ substitutions:
   api_reboot_timeout: 0s
   #电量统计的数据刷新时间（内部刷新时间，非上报周期），秒s/分钟min/小时h
   cse7766_update_interval: 1s
+  #限制异常电流/功率值
+  cse7766_max_current: '5'
+  cse7766_max_power: '1100'
+  #开关名称
+  output0_name: "USB"
+  output1_name: "NAS"
+  output2_name: "BackupDev"
+  output3_name: "Printer"
+  output0_restore_mode: "ALWAYS_OFF"
+  output1_restore_mode: "ALWAYS_OFF"
+  output2_restore_mode: "ALWAYS_OFF"
+  output3_restore_mode: "ALWAYS_OFF"
 
 #------- WIFI配置 -------
 wifi:
@@ -103,6 +115,9 @@ logger:
   #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
   # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
   level: INFO
+  #level: VERBOSE
+  #logs:
+  #  sensor: INFO
   #设置为0关闭通过UART的log输出
   baud_rate: 0
   #通过TTL看log信息，取消注释下面这行，读取接口为RX1，具体见模组接口说明图
@@ -111,26 +126,39 @@ logger:
 sensor:
   - platform: cse7766
     voltage:
-      name: "${device_name} voltage"
+      name: "voltage"
     current:
-      name: "${device_name} current"
+      name: "current"
+      filters:
+        - clamp:
+            min_value: 0
+            max_value: $cse7766_max_current
+            ignore_out_of_range: true
     power:
-      name: "${device_name} power"
-    #update_interval: $cse7766_update_interval
+      name: "power"
+      filters:
+        - clamp:
+            min_value: 0
+            max_value: $cse7766_max_power
+            ignore_out_of_range: true
+        - median:
+            window_size: 7
+            send_every: 4
+            send_first_at: 3
   - platform: uptime
-    name: "${device_name} uptime"
+    name: "uptime"
   - platform: wifi_signal
-    name: "${device_name} wifi_signal"
+    name: "wifi_signal"
 
 binary_sensor:
   - platform: status
     #设备状态
-    name: "${device_name} status"
+    name: "status"
     #是否对外隐藏（true/false）
     internal: false
   - platform: gpio
     #第一个按钮(内部引用，对外隐藏)
-    name: "${device_name} key1"
+    name: "key1"
     #是否对外隐藏（true/false）
     internal: true
     pin:
@@ -149,7 +177,7 @@ binary_sensor:
           - switch.toggle: switch1
   - platform: gpio
     #第二个按钮(内部引用，对外隐藏)
-    name: "${device_name} key2"
+    name: "key2"
     #是否对外隐藏（true/false）
     internal: true
     pin:
@@ -168,7 +196,7 @@ binary_sensor:
           - switch.toggle: switch2
   - platform: gpio
     #第三个按钮(内部引用，对外隐藏)
-    name: "${device_name} key3"
+    name: "key3"
     #是否对外隐藏（true/false）
     internal: true
     pin:
@@ -187,7 +215,7 @@ binary_sensor:
           - switch.toggle: switch3
   - platform: gpio
     #总开关(内部引用，对外隐藏)
-    name: "${device_name} key0"
+    name: "key0"
     #是否对外隐藏（true/false）
     id: key0
     internal: true
@@ -228,27 +256,27 @@ binary_sensor:
 ## choose only one between light status_led platform and status_led component
 light:
   - platform: status_led
-    name: "${device_name} wifi_light"
+    name: "wifi_light"
     pin:
       number: GPIO0
       inverted: true
 
 text_sensor:
   - platform: template #配置文件版本
-    name: "${device_name} Config Version"
+    name: "Config Version"
     lambda: |-
       return {"${config_version}"};
   - platform: version
     #esphome版本
-    name: "${device_name} esphome_version"
+    name: "esphome_version"
     icon: mdi:information-outline
   - platform: wifi_info
     ip_address:
-      name: "${device_name} IP Address"
+      name: "IP Address"
     ssid:
-      name: "${device_name} Connected SSID"
+      name: "Connected SSID"
 #    bssid:
-#      name: "${device_name} Connected BSSID"
+#      name: "Connected BSSID"
 
 #------- 用于控制继电器 -------
 output:
@@ -297,29 +325,30 @@ output:
 #------- 用于可控制的开关 -------
 switch:
   - platform: restart
-    name: "${device_name} reboot"
+    name: "reboot"
     id: Reboot
 
   - platform: output
     #总开关(显示为一个开关)
-    name: "${device_name} switch all"
+    name: $output0_name
     output: realy0
     id: switch0
-    on_turn_on:
-      - switch.turn_on: LOGO_light
-      - lambda: |-
-          if (id(shadow1).state) {
-            id(switch1).turn_on();
-            id(shadow1).publish_state(false);
-          }
-          if (id(shadow2).state) {
-            id(switch2).turn_on();
-            id(shadow2).publish_state(false);
-          }
-          if (id(shadow3).state) {
-            id(switch3).turn_on();
-            id(shadow3).publish_state(false);
-          }
+    restore_mode: $output0_restore_mode
+    #on_turn_on:
+    # - switch.turn_on: LOGO_light
+    # - lambda: |-
+    #     if (id(shadow1).state) {
+    #       id(switch1).turn_on();
+    #       id(shadow1).publish_state(false);
+    #     }
+    #     if (id(shadow2).state) {
+    #       id(switch2).turn_on();
+    #       id(shadow2).publish_state(false);
+    #     }
+    #     if (id(shadow3).state) {
+    #       id(switch3).turn_on();
+    #       id(shadow3).publish_state(false);
+    #     }
     on_turn_off:
       - switch.turn_off: LOGO_light
       - lambda: |-
@@ -337,9 +366,10 @@ switch:
           }
   - platform: output
     #开关1(显示为一个开关)
-    name: "DC1 NAS"
+    name: $output1_name
     output: realy1
     id: switch1
+    restore_mode: $output1_restore_mode
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
@@ -347,9 +377,10 @@ switch:
           }
   - platform: output
     #开关2(显示为一个开关)
-    name: "DC1 BackupDev"
+    name: $output2_name
     output: realy2
     id: switch2
+    restore_mode: $output2_restore_mode
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
@@ -357,9 +388,10 @@ switch:
           }
   - platform: output
     #开关3(显示为一个开关)
-    name: "DC1 Printer"
+    name: $output3_name
     output: realy3
     id: switch3
+    restore_mode: $output3_restore_mode
     on_turn_on:
       - lambda: |-
           if (!id(switch0).state) {
@@ -368,7 +400,8 @@ switch:
   - platform: gpio
     #LOGO灯
     pin: GPIO14
-    name: "${device_name} LOGO Light"
+    name: "LOGO Light"
     id: LOGO_light
     internal: false
     inverted: true
+    restore_mode: ALWAYS_OFF
