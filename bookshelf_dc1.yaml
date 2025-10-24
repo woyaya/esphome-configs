@@ -1,6 +1,6 @@
 #------- User configure START -------
 substitutions:
-  config_version: 'v2025.10.20'
+  config_version: 'v2025.10.24'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: bookshelf_dc1
   #限制异常电流/功率值
@@ -14,7 +14,7 @@ substitutions:
   output0_restore_mode: "ALWAYS_ON"
   output1_restore_mode: "ALWAYS_OFF"
   output2_restore_mode: "ALWAYS_OFF"
-  output3_restore_mode: "ALWAYS_OFF"
+  output3_restore_mode: "ALWAYS_ON"
 
 packages:
   foo: !include phicomm_dc1_api.yaml
