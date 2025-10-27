@@ -12,7 +12,7 @@ esphome:
 #------- 一些自定义的配置，一般情况下只需要改这下面的内容 -------
 
 substitutions:
-  config_version: 'v2025.10.20'
+  config_version: 'v2025.10.27'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: phicomm_dc1_api
   #如果SSID是隐藏的，设置为true
@@ -35,7 +35,13 @@ substitutions:
   output1_restore_mode: "ALWAYS_OFF"
   output2_restore_mode: "ALWAYS_OFF"
   output3_restore_mode: "ALWAYS_OFF"
+  # turn off USB if all other switchs off
+  usb_auto_off: '1'
 
+  #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
+  # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
+  LOG_LEVEL: "INFO"
+  SENSOR_LOG_LEVEL: "INFO"
 #------- WIFI配置 -------
 wifi:
   ssid: !secret wifi_ssid
@@ -114,10 +120,9 @@ uart:
 logger:
   #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
   # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
-  level: INFO
-  #level: VERBOSE
-  #logs:
-  #  sensor: INFO
+  level: $LOG_LEVEL
+  logs:
+    sensor: $SENSOR_LOG_LEVEL
   #设置为0关闭通过UART的log输出
   baud_rate: 0
   #通过TTL看log信息，取消注释下面这行，读取接口为RX1，具体见模组接口说明图
@@ -375,6 +380,15 @@ switch:
           if (!id(switch0).state) {
             id(switch0).turn_on();
           }
+    on_turn_off:
+      - lambda: |-
+          if (${usb_auto_off}) {
+            if ((!id(switch1).state) && 
+                (!id(switch2).state) && 
+                (!id(switch3).state))
+            id(switch0).turn_off();
+          }
+
   - platform: output
     #开关2(显示为一个开关)
     name: $output2_name
@@ -386,6 +400,14 @@ switch:
           if (!id(switch0).state) {
             id(switch0).turn_on();
           }
+    on_turn_off:
+      - lambda: |-
+          if (${usb_auto_off}) {
+            if ((!id(switch1).state) && 
+                (!id(switch2).state) && 
+                (!id(switch3).state))
+            id(switch0).turn_off();
+          }
   - platform: output
     #开关3(显示为一个开关)
     name: $output3_name
@@ -396,6 +418,14 @@ switch:
       - lambda: |-
           if (!id(switch0).state) {
             id(switch0).turn_on();
+          }
+    on_turn_off:
+      - lambda: |-
+          if (${usb_auto_off}) {
+            if ((!id(switch1).state) && 
+                (!id(switch2).state) && 
+                (!id(switch3).state))
+            id(switch0).turn_off();
           }
   - platform: gpio
     #LOGO灯

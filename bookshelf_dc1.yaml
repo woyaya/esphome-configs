@@ -15,6 +15,13 @@ substitutions:
   output1_restore_mode: "ALWAYS_OFF"
   output2_restore_mode: "ALWAYS_OFF"
   output3_restore_mode: "ALWAYS_ON"
+  # turn off USB if all other switchs off
+  usb_auto_off: '1'
+  #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
+  # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
+  #LOG_LEVEL: "VERBOSE"
+  #LOG_LEVEL: "DEBUG"
+  #LOG_LEVEL: "INFO"
 
 packages:
   foo: !include phicomm_dc1_api.yaml
