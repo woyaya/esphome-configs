@@ -1,6 +1,6 @@
 #------- User configure START -------
 substitutions:
-  config_version: 'v2025.10.20'
+  config_version: 'v2025.10.27'
   #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
   device_name: livingroom
   #限制异常电流/功率值
@@ -8,13 +8,20 @@ substitutions:
   cse7766_max_power: '660'
   #开关名称
   output0_name: "USB"
-  output1_name: "LeChengTP1"
+  output1_name: "XiaomiSpeaker"
   output2_name: "TmallGenie"
-  output3_name: "XiaomiSpeaker"
-  output0_restore_mode: "ALWAYS_ON"
-  output1_restore_mode: "ALWAYS_ON"
+  output3_name: "faulty_unused"
+  output0_restore_mode: "ALWAYS_OFF"
+  output1_restore_mode: "ALWAYS_OFF"
   output2_restore_mode: "ALWAYS_OFF"
   output3_restore_mode: "ALWAYS_OFF"
+  # turn off USB if all other switchs off
+  usb_auto_off: '1'
+  #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
+  # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
+  #LOG_LEVEL: "VERBOSE"
+  #LOG_LEVEL: "DEBUG"
+  #LOG_LEVEL: "INFO"
 
 packages:
   foo: !include phicomm_dc1_api.yaml
