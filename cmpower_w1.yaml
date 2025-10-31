@@ -8,7 +8,7 @@ substitutions:
   led_white_pin: GPIO5
   #重要-批量部署到设备上之后，不要去修改node_name和各组件的name（sensor、switch、light等），会导致homeassistant中id变化，影响已有的自动化与脚本。
   #下面这三个键值与各组件的name，可以保证homeassistant中id的唯一性。批量删除设备再添加，homeassistant中的id也不会变化。
-  node_name: "powerboard-test"
+  node_name: "cmpower_w1"
   node_name_friendly: ${node_name}
   node_name_add_mac_suffix: "false"
   #可选填
