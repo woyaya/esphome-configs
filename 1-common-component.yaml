@@ -2,25 +2,25 @@
 text_sensor:
   - platform: wifi_info
     ip_address:
-      name: "sensor-IP"
+      name: "IP Address"
       id: id_sensor_ip
       update_interval: 30s
     ssid:
-      name: "sensor-SSID"
+      name: "Connected SSID"
       id: id_sensor_ssid
       update_interval: 30s
     bssid:
-      name: "sensor-BSSID"
+      name: "Connected BSSID"
       id: id_sensor_bssid
       update_interval: 30s
     mac_address:
-      name: "sensor-MAC"
+      name: "MAC Address"
       id: id_sensor_mac
 
 
 sensor:
   - platform: uptime
-    name: "sensor-Uptime"
+    name: "Uptime"
     id: id_sensor_uptime_raw
     entity_category: diagnostic
     update_interval: 60s
@@ -44,11 +44,11 @@ sensor:
     #            (String(seconds) + "s")
     #          ).c_str();
   - platform: wifi_signal
-    name: "sensor-WifiSignal"
+    name: "wifi_signal"
     id: id_sensor_wifisignal
     update_interval: 60s
 
 binary_sensor:
   - platform: status
-    name: "sensor-LinkStatus"
+    name: "LinkStatus"
     id: id_sensor_linkstatus
