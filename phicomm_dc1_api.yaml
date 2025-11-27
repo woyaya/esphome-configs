@@ -381,6 +381,9 @@ switch:
             id(switch0).turn_on();
           }
     on_turn_off:
+      # Once the USB is turned off, the 'power' sensor will 
+      # no longer have a chance to update.
+      - delay: 4s
       - lambda: |-
           if (${usb_auto_off}) {
             if ((!id(switch1).state) && 
@@ -401,6 +404,9 @@ switch:
             id(switch0).turn_on();
           }
     on_turn_off:
+      # Once the USB is turned off, the 'power' sensor will 
+      # no longer have a chance to update.
+      - delay: 4s
       - lambda: |-
           if (${usb_auto_off}) {
             if ((!id(switch1).state) && 
@@ -420,6 +426,9 @@ switch:
             id(switch0).turn_on();
           }
     on_turn_off:
+      # Once the USB is turned off, the 'power' sensor will 
+      # no longer have a chance to update.
+      - delay: 4s
       - lambda: |-
           if (${usb_auto_off}) {
             if ((!id(switch1).state) && 
