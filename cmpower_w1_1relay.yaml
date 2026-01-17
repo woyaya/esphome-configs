@@ -26,7 +26,7 @@ esp8266:
   restore_from_flash: true
  
 preferences:
-  flash_write_interval: 3min
+  flash_write_interval: 5min
 
 external_components:
   ####local mode####
@@ -333,33 +333,35 @@ sensor:
   - platform: sy7t609
     id: id_sensor_sy7t609
     power_factor:
-      name: "energy-Power Factor"
+      name: "Power Factor"
       id: id_sensor_pf
     voltage:
-      name: "energy-Voltage"
+      name: "Voltage"
       id: id_sensor_voltage
     current:
-      name: "energy-Current"
+      name: "Current"
       id: id_sensor_current
     power:
-      name: "energy-Power"
+      name: "Power"
       id: id_sensor_power
     reactive_power:
-      name: "energy-Reactive Power"
+      name: "Reactive Power"
       id: id_sensor_reactive_power
     energy:
-      name: "energy-Energy Counter"
+      name: "Energy"
       id: id_sensor_energy
+      filters:
+        - multiply: 0.01
     frequency:
-      name: "energy-Frequency"
+      name: "Frequency"
       id: id_sensor_frequency
     chip_temperature:
-      name: "energy-Chip Temperature"
+      name: "Chip Temperature"
       id: id_sensor_chip_temperature
     update_interval: 5s
 
   - platform: total_daily_energy
-    name: "energy-DailyEnergy"
+    name: "DailyEnergy"
     id: id_total_daily_energy_median
     power_id: id_energy_median_power
     accuracy_decimals: 2
@@ -375,7 +377,7 @@ sensor:
   #3.观察窗口中的数值进行排序，位于观察窗中间的中值作为输出。
   #4.然后丢弃最早的值，取得新的采样，重复上面的计算过程。
   - platform: copy
-    name: energy-MedianPower
+    name: MedianPower
     id: id_energy_median_power
     source_id: id_sensor_power
     filters:
@@ -386,7 +388,7 @@ sensor:
   
   #电度量数据持久化存储到esp芯片的flash中，实现断电记忆电度量
   - platform: copy
-    name: energy-Energy Counter(Persist)
+    name: EnergyTotal
     id: id_sensor_energy_counter_persist
     source_id: id_sensor_energy
     filters:

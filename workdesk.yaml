@@ -1,5 +1,5 @@
 substitutions:
-  node_name: "wrokdesk"
+  node_name: "workdesk"
   node_name_friendly: ${node_name}
   node_name_add_mac_suffix: "false"
 
