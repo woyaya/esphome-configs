@@ -26,7 +26,7 @@ esp8266:
   restore_from_flash: true
  
 preferences:
-  flash_write_interval: 1min
+  flash_write_interval: 3min
 
 external_components:
   ####local mode####
@@ -391,17 +391,32 @@ sensor:
     source_id: id_sensor_energy
     filters:
       - lambda: |-
-          if(x < id(id_energy_counter_persist))
+          static unsigned int last_update_ms = 0;
+          static float energy_mirror = 0.0;
+          static float energy_last = 0.0;
+          if (energy_mirror < id(id_energy_counter_persist))
           {
-            float delta =  x - id(id_energy_counter_lastvalue);
-            id(id_energy_counter_persist) += delta;
-            id(id_energy_counter_lastvalue) = x;
+            energy_mirror = id(id_energy_counter_persist);
+            last_update_ms = millis();
+            //ESP_LOGW("Energy", "Initial value: %u, %.5f", last_update_ms, energy_mirror);
           }
-          else
+          if (x < energy_mirror)
           {
-            id(id_energy_counter_persist) = x;
+            float delta = x - energy_last;
+            energy_mirror += delta;
+          }else
+          {
+            energy_mirror = x;
           }
-          return id(id_energy_counter_persist);
+          energy_last = x;
+          if ((millis()-last_update_ms > 60 * 60 * 1000) ||
+              ((energy_mirror-id(id_energy_counter_persist)) > 100.0))
+          {
+              //ESP_LOGW("Energy", "Update: %u->%u, %.5f->%.5f", millis(), last_update_ms, energy_mirror, id(id_energy_counter_persist));
+              id(id_energy_counter_persist) = energy_mirror;
+              last_update_ms = millis();
+          }
+          return energy_mirror;
           
 #计量芯片sy7t609的电度量计数器是内存存储的，断电会丢失，因此使用esp的全局变量存储电度量
 globals:
@@ -409,8 +424,3 @@ globals:
     type: float
     restore_value: yes
     initial_value: '0.0'
-  - id: id_energy_counter_lastvalue
-    type: float
-    restore_value: no
-    initial_value: '0.0'
-
