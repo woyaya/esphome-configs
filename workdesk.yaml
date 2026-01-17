@@ -1,0 +1,8 @@
+substitutions:
+  node_name: "wrokdesk"
+  node_name_friendly: ${node_name}
+  node_name_add_mac_suffix: "false"
+
+packages:
+  foo: !include cmpower_w1_1relay.yaml
+
