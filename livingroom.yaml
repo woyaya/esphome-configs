@@ -5,7 +5,7 @@ substitutions:
 
   # 主从继电器
   master_relay_name: "UNUSED"
-  slave_relay_name: "speaaker"
+  slave_relay_name: "speaker"
   master_relay_restore_mode: "ALWAYS_OFF"
   slave_relay_restore_mode: "ALWAYS_OFF"
 
