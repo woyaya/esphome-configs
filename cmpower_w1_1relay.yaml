@@ -16,6 +16,13 @@ substitutions:
   node_project_version: "sy7t609-20240402"
   node_build_min_version: "2023.12.0"
 
+  master_relay_name: "master"
+  slave_relay_name: "slave"
+  master_relay_restore_mode: "ALWAYS_OFF"
+  slave_relay_restore_mode: "ALWAYS_OFF"
+
+  LOG_LEVEL: "INFO"
+
 packages:
   common: !include 1-common-esp8266-4m-lite.yaml
   common-component: !include 1-common-component.yaml
@@ -48,7 +55,7 @@ wifi:
     - light.turn_on: id_led_red
 
 logger:
-  level: DEBUG
+  level: $LOG_LEVEL
   logs:
     sensor: NONE
   baud_rate: 0
@@ -261,10 +268,10 @@ switch:
 
   #主继电器-真实开关
   - platform: output
-    #name: switch Master
+    name: ${master_relay_name}
     id: id_relay_master_real
     output: id_pin_relay_master
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: ${master_relay_restore_mode}
     on_turn_on:
       - button.press: id_trigger_relay_enable
     on_turn_off:
@@ -273,10 +280,10 @@ switch:
 
   #从继电器-真实开关
   - platform: output
-    name: switch 
+    name: ${slave_relay_name} 
     id: id_relay
     output: id_pin_relay_slave
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: ${slave_relay_restore_mode}
     on_turn_on:
       - button.press: id_trigger_relay_enable
       - light.turn_on: 

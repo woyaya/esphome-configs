@@ -1,8 +1,27 @@
+#------- User configure START -------
 substitutions:
-  node_name: "workdesk"
-  node_name_friendly: ${node_name}
-  node_name_add_mac_suffix: "false"
+  config_version: 'v2026.02.08'
+  #设备名称（多个dc1改成不一样的，API接入和ESPHOME容器会识别这个作为名称显示）
+  device_name: workdesk
+  #限制异常电流/功率值
+  cse7766_max_current: '3'
+  cse7766_max_power: '660'
+  #开关名称
+  output0_name: "USB"
+  output1_name: "lehmann"
+  output2_name: "faulty_unused"
+  output3_name: "SB3"
+  output0_restore_mode: "ALWAYS_ON"
+  output1_restore_mode: "ALWAYS_OFF"
+  output2_restore_mode: "ALWAYS_OFF"
+  output3_restore_mode: "ALWAYS_OFF"
+  # turn off USB if all other switchs off
+  usb_auto_off: '0'
+  #不同的log等级看到的信息详细程度不一样，信息量从少到多依次为
+  # NONE、ERROR、WARN、INFO、DEBUG、VERBOSE、VERY_VERBOSE
+  #LOG_LEVEL: "VERBOSE"
+  #LOG_LEVEL: "DEBUG"
+  #LOG_LEVEL: "INFO"
 
 packages:
-  foo: !include cmpower_w1_1relay.yaml
-
+  foo: !include phicomm_dc1_api.yaml
