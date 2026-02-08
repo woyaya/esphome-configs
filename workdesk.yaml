@@ -8,9 +8,9 @@ substitutions:
   cse7766_max_power: '660'
   #开关名称
   output0_name: "USB"
-  output1_name: "lehmann"
-  output2_name: "faulty_unused"
-  output3_name: "SB3"
+  output1_name: "SB3"
+  output2_name: "lehmann"
+  output3_name: "faulty_unused"
   output0_restore_mode: "ALWAYS_ON"
   output1_restore_mode: "ALWAYS_OFF"
   output2_restore_mode: "ALWAYS_OFF"

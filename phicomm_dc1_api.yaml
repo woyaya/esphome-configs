@@ -60,6 +60,14 @@ wifi:
   fast_connect: $wifi_fast_connect
   #需要修改名字的时候，启用，OTA后禁用
   #use_address: ota.local
+  on_connect:
+    - light.turn_on:
+        id: id_led_wifi
+        effect: "connect_succ"
+  on_disconnect:
+    - light.turn_on:
+        id: id_led_wifi
+        effect: "connect_lost"
   
 #------- WIFI AP配置 -------
   ap:
@@ -260,11 +268,44 @@ binary_sensor:
 
 ## choose only one between light status_led platform and status_led component
 light:
-  - platform: status_led
-    name: "wifi_light"
-    pin:
-      number: GPIO0
-      inverted: true
+  - platform: monochromatic
+    name: "Wifi light"
+    id: id_led_wifi
+    output: id_pin_led_wifi
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+    internal: true
+    effects:
+        #联网成功
+      - strobe:
+          name: "connect_succ"
+          colors:
+            - state: true
+              brightness: 100%
+              duration: 5ms
+            - state: false
+              duration: 3s
+        #网络断开
+      - pulse:
+          name: "connect_lost"
+          transition_length: 0ms
+          update_interval: 100ms
+  - platform: monochromatic
+    name: "Logo light"
+    id: id_led_logo
+    output: id_pin_led_logo
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+    internal: true
+    effects:
+      - strobe:
+          name: "Strobe"
+          colors:
+            - state: true
+              brightness: 100%
+              duration: 2ms
+            - state: false
+              duration: 3s
 
 text_sensor:
   - platform: template #配置文件版本
@@ -285,6 +326,17 @@ text_sensor:
 
 #------- 用于控制继电器 -------
 output:
+  - platform: esp8266_pwm
+    id: id_pin_led_wifi
+    pin:
+      number: GPIO0
+      inverted: true
+  - platform: esp8266_pwm
+    id: id_pin_led_logo
+    pin:
+      number: GPIO14
+      inverted: true
+
   - platform: gpio
     #继电器3(内部引用，对外隐藏)
     id: realy3
@@ -339,23 +391,25 @@ switch:
     output: realy0
     id: switch0
     restore_mode: $output0_restore_mode
-    #on_turn_on:
-    # - switch.turn_on: LOGO_light
-    # - lambda: |-
-    #     if (id(shadow1).state) {
-    #       id(switch1).turn_on();
-    #       id(shadow1).publish_state(false);
-    #     }
-    #     if (id(shadow2).state) {
-    #       id(switch2).turn_on();
-    #       id(shadow2).publish_state(false);
-    #     }
-    #     if (id(shadow3).state) {
-    #       id(switch3).turn_on();
-    #       id(shadow3).publish_state(false);
-    #     }
+    on_turn_on:
+     - light.turn_on:
+         id: id_led_logo
+         effect: "Strobe"
+     - lambda: |-
+         if (id(shadow1).state) {
+           id(switch1).turn_on();
+           id(shadow1).publish_state(false);
+         }
+         if (id(shadow2).state) {
+           id(switch2).turn_on();
+           id(shadow2).publish_state(false);
+         }
+         if (id(shadow3).state) {
+           id(switch3).turn_on();
+           id(shadow3).publish_state(false);
+         }
     on_turn_off:
-      - switch.turn_off: LOGO_light
+      - light.turn_off: id_led_logo
       - lambda: |-
           if (id(switch1).state) {
             id(switch1).turn_off();
@@ -436,11 +490,3 @@ switch:
                 (!id(switch3).state))
             id(switch0).turn_off();
           }
-  - platform: gpio
-    #LOGO灯
-    pin: GPIO14
-    name: "LOGO Light"
-    id: LOGO_light
-    internal: false
-    inverted: true
-    restore_mode: ALWAYS_OFF
